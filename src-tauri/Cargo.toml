@@ -2,7 +2,6 @@
 name = "gamerzz"
 version = "1.0.0"
 description = "A local library for your PC game collection."
-authors = ["George Marantos"]
 edition = "2021"
 
 [lib]

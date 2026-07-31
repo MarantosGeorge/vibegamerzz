@@ -129,8 +129,8 @@ Everything — the database and every cover image — sits in one folder:
 
 | | |
 | --- | --- |
-| **Windows** | `C:\Users\<you>\AppData\Roaming\com.georgemarantos.gamerzz` |
-| **macOS** | `~/Library/Application Support/com.georgemarantos.gamerzz` |
+| **Windows** | `C:\Users\<you>\AppData\Roaming\com.gamerzz.library` |
+| **macOS** | `~/Library/Application Support/com.gamerzz.library` |
 
 **⚙ Settings → Open data folder** takes you straight there.
 

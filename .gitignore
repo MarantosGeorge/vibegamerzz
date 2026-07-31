@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local agent/tool settings. These record absolute paths from the machine they
+# were written on, so they must not be committed.
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
