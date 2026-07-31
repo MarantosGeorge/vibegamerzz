@@ -1,0 +1,1349 @@
+/* ==========================================================================
+   gamerzz
+   A dark theme throughout: cover art is the point of this interface, and
+   artwork reads better against a dark surface than a white one.
+   ========================================================================== */
+
+:root {
+  --bg: #0d1016;
+  --surface: #151a23;
+  --surface-2: #1c232e;
+  --surface-3: #242c3a;
+  --border: #2a3444;
+  --border-strong: #3a4658;
+
+  --text: #e8ecf4;
+  --text-muted: #98a4b8;
+  --text-faint: #6b7688;
+
+  --accent: #7c6cf5;
+  --accent-hover: #8f81f7;
+  --accent-soft: rgba(124, 108, 245, 0.15);
+
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+  --success: #22c55e;
+  --warning: #f59e0b;
+
+  --status-backlog: #64748b;
+  --status-playing: #3b82f6;
+  --status-completed: #22c55e;
+  --status-abandoned: #f59e0b;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Keyboard focus stays visible everywhere; pointer focus does not shout. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Layout ------------------------------------------------------ */
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+.app-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.brand h1 {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.brand p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Buttons ----------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+  white-space: nowrap;
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.button.subtle {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.button.subtle:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+
+.button.danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.button.danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.button.danger-subtle {
+  background: transparent;
+  border-color: var(--border);
+  color: #f2a2a2;
+}
+
+.button.danger-subtle:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.button.large {
+  padding: 12px 24px;
+  font-size: 15px;
+}
+
+.button.full {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.icon-button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+
+/* ---------- Toolbar ----------------------------------------------------- */
+
+.toolbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 22px;
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.search-field {
+  position: relative;
+  flex: 1 1 260px;
+}
+
+.search-field input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.search-field input::placeholder {
+  color: var(--text-faint);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 0 1 190px;
+}
+
+.select-field > span {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 550;
+}
+
+select,
+.field input,
+.field textarea {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  width: 100%;
+}
+
+select {
+  cursor: pointer;
+}
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.chip.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* Each status chip carries its colour as a dot, so the filter row and the
+   card badges teach the same colour vocabulary. */
+.chip.status-backlog::before,
+.chip.status-playing::before,
+.chip.status-completed::before,
+.chip.status-abandoned::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.chip.status-backlog::before {
+  background: var(--status-backlog);
+}
+.chip.status-playing::before {
+  background: var(--status-playing);
+}
+.chip.status-completed::before {
+  background: var(--status-completed);
+}
+.chip.status-abandoned::before {
+  background: var(--status-abandoned);
+}
+
+.chip-count {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip.on .chip-count {
+  color: var(--text-muted);
+}
+
+.result-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* ---------- Card grid --------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.card-cover {
+  position: relative;
+  background: var(--surface-2);
+}
+
+.cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+.cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-placeholder span {
+  font-size: 40px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.82);
+  letter-spacing: 0.04em;
+}
+
+.badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #fff;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.badge.status-backlog {
+  background: rgba(100, 116, 139, 0.92);
+}
+.badge.status-playing {
+  background: rgba(59, 130, 246, 0.92);
+}
+.badge.status-completed {
+  background: rgba(34, 197, 94, 0.92);
+}
+.badge.status-abandoned {
+  background: rgba(245, 158, 11, 0.92);
+  color: #201704;
+}
+
+/* Critic score sits opposite the status badge, reading as a score chip. */
+.critic-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 26px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.critic-good {
+  background: rgba(34, 197, 94, 0.92);
+  color: #06230f;
+}
+
+.critic-mixed {
+  background: rgba(245, 158, 11, 0.92);
+  color: #201704;
+}
+
+.critic-poor {
+  background: rgba(239, 68, 68, 0.92);
+  color: #fff;
+}
+
+.card-genres {
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-body {
+  padding: 11px 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  /* Two lines then ellipsis, so a long title cannot shove the stats around. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.storefront {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  opacity: 0.5;
+}
+
+.progress {
+  height: 5px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.card-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 13px 12px;
+}
+
+.card-actions .button {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+/* ---------- Stars ------------------------------------------------------- */
+
+.stars {
+  display: inline-flex;
+  align-items: center;
+}
+
+.stars-sm {
+  font-size: 14px;
+}
+
+.stars-md {
+  font-size: 24px;
+}
+
+.stars-track {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+/* A gold star clipped over a grey one, so any fraction can be drawn. The
+   inner glyph keeps its full width and is cut off by the clip, rather than
+   being squashed. */
+.star-slot {
+  position: relative;
+  display: block;
+  line-height: 1;
+  padding: 0 1px;
+}
+
+.star-base {
+  color: var(--surface-3);
+}
+
+.star-fill {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: width 0.12s ease;
+  padding-left: 1px;
+}
+
+.star-on {
+  color: #fbbf24;
+}
+
+.star-target {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+/* Invisible left/right halves of each star. Pointer affordance only - the
+   track itself carries the keyboard behaviour. */
+.star-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+}
+
+.star-half-right {
+  left: 50%;
+}
+
+.stars-input .star-target:hover .star-slot {
+  transform: scale(1.12);
+}
+
+.stars-input .star-slot {
+  transition: transform 0.1s ease;
+}
+
+.stars-caption {
+  margin-left: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Empty and loading states ------------------------------------ */
+
+.empty {
+  max-width: 520px;
+  margin: 72px auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.empty-art {
+  font-size: 52px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.empty h2 {
+  font-size: 21px;
+}
+
+.empty p {
+  color: var(--text-muted);
+  font-size: 14.5px;
+}
+
+.empty-hint {
+  font-size: 13px !important;
+  color: var(--text-faint) !important;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+.skeleton-card .cover {
+  aspect-ratio: 3 / 4;
+}
+
+.line {
+  height: 12px;
+  width: 100%;
+}
+
+.line.short {
+  width: 55%;
+}
+
+/* ---------- Modal ------------------------------------------------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 11, 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+}
+
+.modal-wide {
+  max-width: 760px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  font-size: 17px;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.dialog-message {
+  color: var(--text-muted);
+  font-size: 14.5px;
+}
+
+/* ---------- Forms ------------------------------------------------------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 22px;
+}
+
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.field-label em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-faint);
+  margin-left: 4px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 76px;
+}
+
+.field input[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field-error {
+  font-size: 12.5px;
+  color: #fca5a5;
+}
+
+.suffix-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suffix-input span {
+  color: var(--text-faint);
+  font-size: 13px;
+  /* The suffix keeps its width and the input gives way, otherwise a two-word
+     suffix like "/ 100" wraps under the field. */
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.playtime-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Selected genres, each one its own remove button. */
+.genre-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.genre-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.genre-chip span {
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.genre-chip:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.genre-chip:hover span {
+  color: #fca5a5;
+}
+
+/* Number spinners add nothing here and steal width. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.form-cover {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cover-preview {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.cover-busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 12, 17, 0.8);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cover-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cover-buttons .button {
+  flex: 1 1 auto;
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+
+.url-field {
+  display: flex;
+  gap: 6px;
+}
+
+.url-field input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ---------- Notices ----------------------------------------------------- */
+
+.notice {
+  margin-top: 16px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  border: 1px solid;
+}
+
+.notice.error {
+  background: var(--danger-soft);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.notice.success {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+
+.notice.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+  margin-bottom: 16px;
+  margin-top: 0;
+}
+
+/* ---------- IGDB search ------------------------------------------------- */
+
+.igdb {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.igdb-search {
+  display: flex;
+  gap: 8px;
+}
+
+.igdb-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.igdb-results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.igdb-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.igdb-result:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.igdb-result.skeleton {
+  cursor: default;
+}
+
+.igdb-thumb {
+  width: 40px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: var(--surface-3);
+}
+
+.igdb-thumb-blank {
+  background: var(--surface-3);
+}
+
+.igdb-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.igdb-name {
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.igdb-year {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.igdb-sub {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-faint);
+  min-width: 0;
+}
+
+.igdb-score {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.igdb-genres {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.igdb-duplicate {
+  font-size: 12px;
+  color: var(--warning);
+}
+
+.igdb-empty {
+  margin-top: 12px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+/* ---------- Settings ---------------------------------------------------- */
+
+.settings-section {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-section:first-child {
+  padding-top: 0;
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-section h3 {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+
+.pill.on {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+
+.settings-help {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.settings-steps {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13.5px;
+}
+
+.settings-steps summary {
+  cursor: pointer;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.settings-steps ol {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-steps code {
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12.5px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.settings-form .field {
+  width: 100%;
+}
+
+.settings-actions.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Toasts ------------------------------------------------------ */
+
+.toast-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+  max-width: min(380px, calc(100vw - 40px));
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+  font-size: 13.5px;
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast-success {
+  border-left: 3px solid var(--success);
+}
+
+.toast-error {
+  border-left: 3px solid var(--danger);
+}
+
+/* ---------- Responsive -------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .app {
+    padding: 20px 14px 48px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* On a narrow screen a full-width cover would push the Title field below the
+     fold, so lay the preview and its buttons out side by side instead. */
+  .form-cover {
+    display: grid;
+    grid-template-columns: 104px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .cover-buttons {
+    flex-direction: column;
+  }
+
+  .cover-buttons .button {
+    width: 100%;
+  }
+
+  .url-field {
+    grid-column: 1 / -1;
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Four full-width selects would push every game below the fold, so pair
+     them up. The slightly smaller type is what makes the longest option
+     ("Any critic score") fit in half a phone screen. */
+  .select-field {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+  }
+
+  .select-field select {
+    font-size: 14px;
+    padding: 10px 8px;
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions .button {
+    flex: 1;
+  }
+
+  .card-title {
+    font-size: 14px;
+  }
+
+  /* Half a star is a ~13px target at the desktop size, which is far too small
+     for a fingertip. Bigger glyphs widen it, and the padding gives the row a
+     comfortable height without moving anything visually. */
+  .stars-md {
+    font-size: 36px;
+  }
+
+  .stars-input .star-target {
+    padding: 5px 0;
+  }
+}
+
+@media (max-width: 400px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  }
+
+  .cover-placeholder span {
+    font-size: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
