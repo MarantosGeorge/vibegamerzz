@@ -6,6 +6,10 @@ thought of it.
 
 Everything is stored on your own computer. There is no account, no sync and no server.
 
+![The gamerzz library: a grid of game cards showing cover art, status badges, critic scores, genres and star ratings, above a row of search, storefront, genre, critic-score and sort controls](docs/images/library.png)
+
+<p align="center"><em>The library view, with the sample collection loaded.</em></p>
+
 ---
 
 ## Table of contents
@@ -16,6 +20,7 @@ Everything is stored on your own computer. There is no account, no sync and no s
   - [Adding your first game](#adding-your-first-game)
   - [Turning on game search (IGDB)](#turning-on-game-search-igdb)
   - [Where your data lives](#where-your-data-lives)
+  - [Uninstalling](#uninstalling)
 - [For the developer](#for-the-developer)
   - [Running it locally](#running-it-locally)
   - [Building the Windows installer](#building-the-windows-installer) — step by step from a
@@ -29,6 +34,7 @@ Everything is stored on your own computer. There is no account, no sync and no s
     - [Step 7 — Build](#step-7--build)
     - [Step 8 — Collect the installer](#step-8--collect-the-installer)
     - [If the build fails](#if-the-build-fails)
+    - [Cleaning up a development machine](#cleaning-up-a-development-machine)
   - [Project layout](#project-layout)
   - [How it works](#how-it-works)
 
@@ -136,6 +142,54 @@ Everything — the database and every cover image — sits in one folder:
 
 Inside you'll find `gamerzz.db` (all your games) and a `covers` folder (all the images).
 Copying that folder somewhere safe is a complete backup; there is no built-in backup feature.
+
+### Uninstalling
+
+**Your library is kept unless you explicitly ask for it to be deleted.** The uninstaller has a
+tick box for that, and it starts **unticked** — so an ordinary uninstall leaves your games
+behind, and reinstalling later picks them straight back up.
+
+1. Open **Settings → Apps → Installed apps** (on Windows 10: *Apps & features*).
+2. Find **gamerzz** in the list.
+3. Click the **⋯** menu next to it and choose **Uninstall**.
+4. The uninstaller opens and asks you to confirm. Look for the
+   **Delete application data** tick box:
+   - **Leave it unticked** to keep your library. This is the default.
+   - **Tick it** to erase everything — the database and every cover image.
+5. Click **Uninstall**.
+
+No administrator password is needed, because the app installs for your user account only.
+
+> **Want a copy of your library before you uninstall?** Open **⚙ Settings → Open data folder**
+> *first* and copy that folder somewhere safe. Once the uninstaller has deleted it, it is gone —
+> there is no recycle bin step and no undo.
+
+#### What gets removed
+
+| | Ordinary uninstall | With **Delete application data** ticked |
+| --- | --- | --- |
+| The program itself (`%LOCALAPPDATA%\gamerzz`) | Removed | Removed |
+| Start menu and desktop shortcuts | Removed | Removed |
+| Your games, ratings and cover images | **Kept** | Removed |
+| Your saved IGDB credentials | **Kept** | Removed |
+
+The data the second column removes is exactly the folder named in
+[Where your data lives](#where-your-data-lives) — you can also just delete that folder by hand
+at any time, with or without uninstalling. Deleting it while the app is closed resets gamerzz to
+a completely fresh state.
+
+#### Two things not to do
+
+- **Don't uninstall WebView2.** Windows and other applications share it. Removing gamerzz does
+  not touch it, and it shouldn't.
+- **Don't just delete the program folder.** That leaves gamerzz listed in *Installed apps* with
+  no working uninstaller. Use the steps above instead.
+
+#### Uninstalling on macOS
+
+Drag **gamerzz.app** to the Trash, then delete
+`~/Library/Application Support/com.gamerzz.library` if you also want the library gone. macOS has
+no uninstaller, so the data folder is never removed for you.
 
 ---
 
@@ -317,6 +371,32 @@ Azure Trusted Signing.
 
 `npm run package` produces a `.app` and a `.dmg`. Useful for testing the app itself; it cannot
 produce the Windows `.exe`.
+
+#### Cleaning up a development machine
+
+Running `npm start` installs nothing, but it does leave two things behind.
+
+**Build artifacts** — several GB once Rust has compiled everything. Safe to delete at any time;
+the next build just takes longer:
+
+```powershell
+Remove-Item -Recurse -Force src-tauri\target, node_modules
+```
+
+```bash
+rm -rf src-tauri/target node_modules
+```
+
+**A real data folder.** Development builds use the same identifier as the installed app, so
+`npm start` reads and writes the *same* database as a released copy on that machine. Two
+consequences worth knowing:
+
+- Testing on your own machine will happily edit your real library. Back it up first.
+- Deleting the repo does **not** delete that folder — remove it separately, using the paths in
+  [Where your data lives](#where-your-data-lives).
+
+To uninstall a build you installed from your own `.exe`, follow the
+[uninstall steps above](#uninstalling); nothing about a locally built installer differs.
 
 ### Project layout
 
