@@ -7,7 +7,7 @@ import {
   saveCoverFromUrl,
 } from "../lib/api";
 import { splitPlaytime } from "../lib/format";
-import { IGDB_GENRES, STATUSES, STATUS_LABELS } from "../types";
+import { IGDB_GENRES, STATUSES, STATUS_LABELS, statusHint } from "../types";
 import type { Game, GameInput, IgdbGame, Status } from "../types";
 import { CoverImage } from "./CoverImage";
 import { IgdbSearch } from "./IgdbSearch";
@@ -76,6 +76,16 @@ export function GameForm({
 
   const duplicateWarning =
     igdbId !== null && igdbId !== game?.igdb_id && existingIgdbIds.has(igdbId);
+
+  // Recomputed as the user types, from whatever is in the fields right now, so
+  // typing a playtime into a Backlog game surfaces the hint immediately. Blank
+  // and half-typed values read as zero here - `validate` is what complains
+  // about them, and it would be obnoxious to do it twice.
+  const hint = statusHint(
+    status,
+    (Number(hours) || 0) * 60 + (Number(minutes) || 0),
+    Number(achievement) || 0,
+  );
 
   // The known vocabulary plus anything IGDB supplied that is not on it, so a
   // genre imported from IGDB can still be re-added after being removed.
@@ -446,6 +456,7 @@ export function GameForm({
                     </option>
                   ))}
                 </select>
+                {hint && <span className="field-hint">{hint}</span>}
               </label>
             </div>
 

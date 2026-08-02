@@ -1,13 +1,27 @@
 /** Shared vocabulary for the whole app. Mirrors the `games` table exactly. */
 
-export const STATUSES = ["backlog", "playing", "completed", "abandoned"] as const;
+/**
+ * The six shelves a game can sit on. Independent, not a ranking - Platinum is
+ * not a stronger Completed. See docs/adr/0001. The order here is the order the
+ * chips and the dropdown render in, and means nothing beyond that.
+ */
+export const STATUSES = [
+  "backlog",
+  "attempted",
+  "completed",
+  "platinum",
+  "abandoned",
+  "playing",
+] as const;
 export type Status = (typeof STATUSES)[number];
 
 export const STATUS_LABELS: Record<Status, string> = {
   backlog: "Backlog",
-  playing: "Playing",
+  attempted: "Attempted",
   completed: "Completed",
+  platinum: "Platinum",
   abandoned: "Abandoned",
+  playing: "Playing",
 };
 
 /** A game as it comes back from SQLite. */
@@ -134,4 +148,22 @@ export interface IgdbGame {
   thumb_url: string | null;
 }
 
-export const isCompleted = (game: Game) => game.status === "completed";
+/**
+ * The status the numbers suggest, when they disagree with the status chosen.
+ * Advice only - the form prints it and does nothing else. See docs/adr/0002 for
+ * why Platinum, Abandoned and Playing are silent under every condition, and why
+ * Backlog is judged on playtime alone.
+ */
+export function statusHint(
+  status: Status,
+  playtimeMinutes: number,
+  achievementPct: number,
+): string | null {
+  if (status === "backlog" && playtimeMinutes > 0) {
+    return "You've played this — Attempted?";
+  }
+  if ((status === "attempted" || status === "completed") && achievementPct === 100) {
+    return "100% achievements — Platinum?";
+  }
+  return null;
+}

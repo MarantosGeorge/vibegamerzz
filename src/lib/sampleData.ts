@@ -27,7 +27,7 @@ export const SAMPLE_GAMES: SampleGame[] = [
   {
     title: "Hades",
     platform: "Steam",
-    status: "completed",
+    status: "platinum",
     achievement_pct: 78,
     playtime_minutes: 3_120,
     rating: 5,
@@ -41,7 +41,7 @@ export const SAMPLE_GAMES: SampleGame[] = [
   {
     title: "Baldur's Gate 3",
     platform: "GOG",
-    status: "playing",
+    status: "attempted",
     achievement_pct: 31,
     playtime_minutes: 6_540,
     rating: 5,
@@ -97,7 +97,7 @@ export const SAMPLE_GAMES: SampleGame[] = [
   {
     title: "Alan Wake 2",
     platform: "Epic Games",
-    status: "playing",
+    status: "attempted",
     achievement_pct: 12,
     playtime_minutes: 415,
     rating: 4.5,

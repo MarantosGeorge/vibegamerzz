@@ -79,7 +79,7 @@ sensible default you can come back to later.
 | --- | --- |
 | **Title** | The name of the game. Required. |
 | **Storefront** | Where you bought or downloaded it: Steam, Epic, GOG, and so on. Missing yours? Pick **+ Add storefront…** and type it in. |
-| **Status** | **Backlog** (not started), **Playing**, **Completed**, or **Abandoned**. |
+| **Status** | Which of six shelves the game sits on — see [Statuses](#statuses) below. |
 | **Achievements completed** | A percentage from 0 to 100. Typed in by hand. |
 | **Play time** | Hours and minutes. Typed in by hand. |
 | **Your rating** | 0 to 5 stars, in **halves**. Click the left half of a star for a half, the right half for a whole. Click the same spot again to clear it. You can also focus the stars and use the arrow keys. |
@@ -87,6 +87,30 @@ sensible default you can come back to later.
 | **Genres** | Filled in automatically from IGDB, or pick your own from the list. A game can have as many as you like — click a genre to remove it. |
 | **Cover image** | **Choose file…** to pick a picture from your computer, or **Paste link** for an image address from the web. If you leave it blank, the app draws a coloured tile with the game's initials. |
 | **Notes** | Anything you want to remember. Optional. |
+
+### Statuses
+
+Every game sits on exactly one of six shelves.
+
+| Status | | What it means |
+| --- | --- | --- |
+| **Backlog** | ⬤ grey | Bought and never touched. No playtime. |
+| **Attempted** | ⬤ blue | Played, the credits haven't rolled, and you mean to come back to it. |
+| **Completed** | ⬤ gold | The main credits have rolled — the story, plus whatever side content you picked up on the way. Where most people stop. |
+| **Platinum** | ⬤ white | You're completely done, by whatever measure fits the game: its achievements, its own completion metric, or your own standard. |
+| **Abandoned** | ⬤ red | Played, and you're not going back. The reason doesn't matter. |
+| **Playing** | ⬤ green | On your desk right now. Says nothing about how far through you are. |
+
+These are six independent shelves, not a ranking. **Platinum doesn't count as Completed** — the
+header line counts them separately, on purpose.
+
+Two of them restate numbers the app already has, so when a status disagrees with the figures
+you've typed, a line of grey text appears under the dropdown: *"You've played this — Attempted?"*
+for a Backlog game with time on it, and *"100% achievements — Platinum?"* for an Attempted or
+Completed game at 100%. It's a suggestion and nothing more — it never blocks a save, and never
+changes the field for you. Platinum, Abandoned and Playing are always left alone: a Platinum at
+94% is your call, plenty of games have no achievements at all, and a game you're playing might
+have no hours yet or every achievement already.
 
 Once you have a few games, use the search box, the coloured status buttons and the
 storefront, genre, critic-score and sort dropdowns to find things. The genre dropdown only
