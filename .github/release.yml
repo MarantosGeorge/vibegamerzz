@@ -1,0 +1,50 @@
+# Shapes the notes GitHub generates for a release.
+#
+# The release page is the changelog — there is no CHANGELOG.md. Every line in a
+# release body comes from a merged pull request, so a change only appears here
+# if it landed through a PR, and it reads as well as that PR's title.
+#
+# A PR gets one line, in one category. Detail that does not fit on one line goes
+# in the PR description, which every line links to.
+changelog:
+  exclude:
+    # Tooling, CI and repo hygiene — real work, but not something a player
+    # downloading an installer needs to read about.
+    labels:
+      - chore
+
+  # Order matters: a PR carrying two of these lands in the first one it matches,
+  # so the categories run most-specific first. The convention is one label per
+  # PR; this ordering is only the safety net for when that slips, and it puts
+  # the upgrade-critical terms above the general ones.
+  categories:
+    - title: Database
+      labels:
+        - database
+
+    - title: Removed
+      labels:
+        - removed
+
+    - title: Changed
+      labels:
+        - changed
+
+    - title: Added
+      labels:
+        - enhancement
+
+    - title: Fixed
+      labels:
+        - bug
+
+    - title: Documentation
+      labels:
+        - documentation
+
+    # The catch-all. Without it, a PR matching no category above would be
+    # dropped from the notes entirely — a forgotten label would make a shipped
+    # change invisible rather than merely miscategorised.
+    - title: Other changes
+      labels:
+        - "*"
