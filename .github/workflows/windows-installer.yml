@@ -1,0 +1,72 @@
+name: Windows installer
+
+# Only when a release is created — never on push or pull request. Drafting a
+# release does not fire this; publishing it does.
+on:
+  release:
+    types: [created]
+
+# Needed so the job can attach the built installer to the release.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build NSIS installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out the tag being released
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Ahead of the Rust toolchain and the build, so a mismatch fails in
+      # seconds instead of after a full compile. Needs no dependencies, so it
+      # runs before `npm ci` too.
+      - name: Check the tag matches the version in the repo
+        run: node scripts/check-version.mjs "${{ github.event.release.tag_name }}"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # `tauri build` runs `npm run build` itself (beforeBuildCommand), so the
+      # frontend is compiled here too. --bundles nsis narrows the config's
+      # target list to the one thing Windows can produce.
+      - name: Build the installer
+        run: npm run tauri -- build --bundles nsis
+
+      # The filename carries the version from tauri.conf.json, so glob it rather
+      # than hardcoding a name that goes stale on the next version bump.
+      - name: Upload the installer to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe
+          if (-not $installer) { throw "No installer found in the nsis bundle folder." }
+          gh release upload "$env:TAG" $installer.FullName --clobber
+
+      # A copy on the workflow run itself, so a failed upload or a deleted
+      # release does not mean rebuilding from scratch.
+      - name: Keep a copy on the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: gamerzz-windows-installer
+          path: src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error

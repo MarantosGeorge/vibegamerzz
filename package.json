@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "start": "tauri dev",
-    "package": "tauri build"
+    "package": "tauri build",
+    "bump": "node scripts/bump-version.mjs",
+    "check-version": "node scripts/check-version.mjs",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "react": "^19.1.0",
