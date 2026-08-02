@@ -54,13 +54,21 @@ export function GameCard({ game, onEdit, onDelete }: GameCardProps) {
 
         <StarRating value={game.rating} />
 
-        <div className="progress" aria-hidden="true">
-          <div className="progress-bar" style={{ width: `${game.achievement_pct}%` }} />
-        </div>
+        {/* No bar at all when there are no achievements: an empty track reads
+            as 0%, which is the other fact entirely. The stat says which. */}
+        {game.achievement_pct !== null && (
+          <div className="progress" aria-hidden="true">
+            <div className="progress-bar" style={{ width: `${game.achievement_pct}%` }} />
+          </div>
+        )}
         <p className="card-stats">
-          <span aria-label={`${game.achievement_pct} percent of achievements`}>
-            🏆 {game.achievement_pct}%
-          </span>
+          {game.achievement_pct === null ? (
+            <span aria-label="This game has no achievements">🏆 No achievements</span>
+          ) : (
+            <span aria-label={`${game.achievement_pct} percent of achievements`}>
+              🏆 {game.achievement_pct}%
+            </span>
+          )}
           <span aria-label={`Played for ${formatPlaytime(game.playtime_minutes)}`}>
             ⏱ {formatPlaytime(game.playtime_minutes)}
           </span>

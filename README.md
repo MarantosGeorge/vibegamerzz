@@ -80,7 +80,7 @@ sensible default you can come back to later.
 | **Title** | The name of the game. Required. |
 | **Storefront** | Where you bought or downloaded it: Steam, Epic, GOG, and so on. Missing yours? Pick **+ Add storefront…** and type it in. |
 | **Status** | Which of six shelves the game sits on — see [Statuses](#statuses) below. |
-| **Achievements completed** | A percentage from 0 to 100. Typed in by hand. |
+| **Achievements completed** | A percentage from 0 to 100. Typed in by hand. Tick **This game has no achievements** if there are none to earn — plenty of Epic, GOG and itch.io titles have none, and Undertale has none on Steam either. That's a different thing from 0%, and the app keeps them apart. |
 | **Play time** | Hours and minutes. Typed in by hand. |
 | **Your rating** | 0 to 5 stars, in **halves**. Click the left half of a star for a half, the right half for a whole. Click the same spot again to clear it. You can also focus the stars and use the arrow keys. |
 | **Critic score** | What reviewers thought, out of 100. Filled in automatically from IGDB when you use search; otherwise leave it blank or type it in. Shown as a coloured chip in the corner of the cover. |
@@ -126,6 +126,8 @@ Games with nothing to sort on stay at the bottom either way. Sorting by critic s
 games nobody has reviewed last whichever direction you choose, and sorting by your rating does
 the same for games you haven't rated — "no score" isn't a bad score, so **Lowest rated** shows
 you the games you actually disliked rather than every game you never got round to rating.
+Sorting by completion treats games with no achievements the same way: **Least complete** shows
+you what you've barely started, not the games that have nothing to complete.
 
 > **Just want to look around first?** Open **⚙ Settings → Load sample library** to fill the app
 > with eight example games, and remove them again with one click when you're done.
@@ -490,6 +492,13 @@ conventional order (A–Z) runs opposite to every other key's (highest, most, ne
 literal ascending flag would hand you Z–A the first time you picked Title. Games with no value
 for the active key are partitioned out and appended, so they sit at the bottom in both
 directions. See `docs/adr/0003`.
+
+**"No achievements" is `NULL`, not `0`.** `achievement_pct` is nullable, and null means the game
+has no achievement system to make progress through — not that you have made none. A boolean
+beside the percentage would have been the cheaper migration, but it lets the database hold "has
+no achievements" and "87%" at the same time; one nullable column makes that unrepresentable.
+Existing rows were not backfilled, because no heuristic can tell an untouched game from an
+achievement-less one without silently rewriting somebody's library. See `docs/adr/0004`.
 
 **Covers are copied in, never referenced.** Choosing a file copies it into the app's `covers`
 folder; picking an IGDB result downloads the artwork there. The database stores only a filename.
