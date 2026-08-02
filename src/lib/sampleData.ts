@@ -7,7 +7,7 @@
  * they also serve as a look at how the generated placeholder behaves.
  */
 
-import type { Status } from "../types";
+import type { Priority, Status } from "../types";
 
 interface SampleGame {
   title: string;
@@ -141,5 +141,92 @@ export const SAMPLE_GAMES: SampleGame[] = [
     summary:
       "Board a merchant ship lost at sea in 1803 and determine the fate of all sixty souls aboard.",
     release_date: "2018-10-18",
+  },
+];
+
+interface SampleWishlistEntry {
+  title: string;
+  priority: Priority;
+  critic_rating: number | null;
+  genres: string[];
+  notes: string | null;
+  summary: string | null;
+  release_date: string | null;
+}
+
+/**
+ * Demo wishlist, loaded and cleared by the same Settings action as the games
+ * above. It has to cover all three priorities, because the tab groups by them
+ * and an empty tier renders nothing at all.
+ *
+ * The unreleased entry is the point of `Hollow Knight: Silksong` being here: its
+ * date is far enough out to still be in the future, so the derived "not out yet"
+ * chip has something to show. Nothing stores that fact - see docs/adr/0006.
+ */
+export const SAMPLE_WISHLIST: SampleWishlistEntry[] = [
+  {
+    title: "Hollow Knight: Silksong",
+    priority: "must-have",
+    // No aggregate yet, which is the normal state of an unreleased game and
+    // worth demonstrating: it drops out of the critic sort rather than sorting
+    // as a zero.
+    critic_rating: null,
+    genres: ["Indie", "Platform", "Adventure"],
+    notes: "Buying this the hour it comes out.",
+    summary:
+      "Ascend to a haunted kingdom in a sequel to the acclaimed action adventure, playing as the hunter Hornet.",
+    release_date: "2099-12-31",
+  },
+  {
+    title: "Elden Ring",
+    priority: "must-have",
+    critic_rating: 96,
+    genres: ["Role-playing (RPG)", "Adventure"],
+    notes: "Waiting for a sale, but not waiting very hard.",
+    summary:
+      "A vast open world of peril and discovery, forged by FromSoftware and George R. R. Martin.",
+    release_date: "2022-02-25",
+  },
+  {
+    title: "Disco Elysium",
+    priority: "interested",
+    critic_rating: 91,
+    genres: ["Role-playing (RPG)", "Point-and-click", "Indie"],
+    notes: null,
+    summary:
+      "A detective role-playing game in which you are a broken cop with a murder to solve and a mind to argue with.",
+    release_date: "2019-10-15",
+  },
+  {
+    title: "Outer Wilds",
+    priority: "interested",
+    critic_rating: 85,
+    genres: ["Indie", "Adventure", "Puzzle"],
+    notes: "Dave will not stop bringing this one up.",
+    summary:
+      "Explore a handcrafted solar system trapped in an endless time loop, one twenty-two-minute run at a time.",
+    release_date: "2019-05-28",
+  },
+  {
+    title: "Total War: Warhammer III",
+    priority: "someday",
+    critic_rating: 86,
+    genres: ["Strategy", "Real Time Strategy (RTS)", "Turn-based strategy (TBS)"],
+    notes: "Only once I have finished the second one, which may be never.",
+    summary:
+      "Command the armies of the Chaos gods or the mortal realms in the finale of a strategy trilogy.",
+    release_date: "2022-02-17",
+  },
+  {
+    title: "Kenshi",
+    priority: "someday",
+    // Left unscored on purpose, so the demo wishlist shows what an entry with
+    // no critic aggregate looks like alongside one that simply is not out yet.
+    critic_rating: null,
+    genres: ["Role-playing (RPG)", "Strategy", "Simulator"],
+    notes: null,
+    summary:
+      "A free-roaming squad-based world where you are nobody, and nothing is balanced in your favour.",
+    release_date: "2018-12-06",
   },
 ];

@@ -8,8 +8,8 @@
  */
 
 import Database from "@tauri-apps/plugin-sql";
-import type { Game, GameInput } from "../types";
-import { SAMPLE_GAMES } from "./sampleData";
+import type { Game, GameInput, WishlistEntry, WishlistInput } from "../types";
+import { SAMPLE_GAMES, SAMPLE_WISHLIST } from "./sampleData";
 
 const DB_URL = "sqlite:gamerzz.db";
 
@@ -114,6 +114,100 @@ export async function deleteGame(id: number): Promise<void> {
   await handle.execute("DELETE FROM games WHERE id = $1", [id]);
 }
 
+/* ---------- Wishlist ------------------------------------------------------
+ *
+ * A separate table because a wishlist entry is not a game - see docs/adr/0005.
+ * These read the same way the game functions do: everything at once, filtered
+ * and sorted in memory.
+ */
+
+type WishlistRow = Omit<WishlistEntry, "genres"> & { genres: string | null };
+
+export async function listWishlist(): Promise<WishlistEntry[]> {
+  const handle = await db();
+  const rows = await handle.select<WishlistRow[]>("SELECT * FROM wishlist");
+  return rows.map((row) => ({ ...row, genres: parseGenres(row.genres) }));
+}
+
+export async function createWishlistEntry(input: WishlistInput): Promise<number> {
+  const handle = await db();
+  const timestamp = nowIso();
+  const result = await handle.execute(
+    `INSERT INTO wishlist (
+       title, priority, critic_rating, genres, cover_file, notes, igdb_id,
+       summary, release_date, is_sample, created_at, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11)`,
+    [
+      input.title,
+      input.priority,
+      input.critic_rating,
+      serialiseGenres(input.genres),
+      input.cover_file,
+      input.notes,
+      input.igdb_id,
+      input.summary,
+      input.release_date,
+      timestamp,
+      timestamp,
+    ],
+  );
+  return Number(result.lastInsertId);
+}
+
+export async function updateWishlistEntry(
+  id: number,
+  input: WishlistInput,
+): Promise<void> {
+  const handle = await db();
+  await handle.execute(
+    `UPDATE wishlist SET
+       title = $1, priority = $2, critic_rating = $3, genres = $4,
+       cover_file = $5, notes = $6, igdb_id = $7, summary = $8,
+       release_date = $9, updated_at = $10
+     WHERE id = $11`,
+    [
+      input.title,
+      input.priority,
+      input.critic_rating,
+      serialiseGenres(input.genres),
+      input.cover_file,
+      input.notes,
+      input.igdb_id,
+      input.summary,
+      input.release_date,
+      nowIso(),
+      id,
+    ],
+  );
+}
+
+export async function deleteWishlistEntry(id: number): Promise<void> {
+  const handle = await db();
+  await handle.execute("DELETE FROM wishlist WHERE id = $1", [id]);
+}
+
+/**
+ * Buying an entry: the game is written, then the entry is dropped.
+ *
+ * The cover file is handed over rather than copied - it is a file on disk with a
+ * name, and the new row points at the same name. Nothing is written and nothing
+ * is orphaned, which is why the caller must not run its usual delete-the-old-
+ * cover cleanup over this one.
+ *
+ * The two statements are not in a transaction. If the delete somehow failed
+ * after the insert, the entry would still be sitting there to be removed by
+ * hand, which is a far better failure than an entry silently vanishing with no
+ * game to show for it.
+ */
+export async function buyWishlistEntry(
+  entryId: number,
+  input: GameInput,
+): Promise<number> {
+  const gameId = await createGame(input);
+  await deleteWishlistEntry(entryId);
+  return gameId;
+}
+
 export async function listStorefronts(): Promise<string[]> {
   const handle = await db();
   const rows = await handle.select<{ name: string }[]>(
@@ -131,9 +225,32 @@ export async function addStorefront(name: string): Promise<void> {
   );
 }
 
-export async function loadSampleGames(): Promise<void> {
+/**
+ * Seeds both tables from one action. The wishlist groups by priority, so an
+ * empty one demonstrates nothing about itself - not even its three headings.
+ */
+export async function loadSamples(): Promise<void> {
   const handle = await db();
   const timestamp = nowIso();
+  for (const entry of SAMPLE_WISHLIST) {
+    await handle.execute(
+      `INSERT INTO wishlist (
+         title, priority, critic_rating, genres, notes, summary, release_date,
+         is_sample, created_at, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,1,$8,$9)`,
+      [
+        entry.title,
+        entry.priority,
+        entry.critic_rating,
+        serialiseGenres(entry.genres),
+        entry.notes,
+        entry.summary,
+        entry.release_date,
+        timestamp,
+        timestamp,
+      ],
+    );
+  }
   for (const game of SAMPLE_GAMES) {
     await handle.execute(
       `INSERT INTO games (
@@ -160,20 +277,38 @@ export async function loadSampleGames(): Promise<void> {
   }
 }
 
-export async function countSampleGames(): Promise<number> {
-  const handle = await db();
-  const rows = await handle.select<{ n: number }[]>(
-    "SELECT COUNT(*) AS n FROM games WHERE is_sample = 1",
-  );
-  return rows[0]?.n ?? 0;
+/** Counted separately rather than summed: they are different kinds of thing. */
+export interface SampleCounts {
+  games: number;
+  wishlist: number;
 }
 
-/** Returns the cover files that were orphaned, so the caller can delete them. */
-export async function clearSampleGames(): Promise<string[]> {
+export async function countSamples(): Promise<SampleCounts> {
   const handle = await db();
-  const rows = await handle.select<{ cover_file: string | null }[]>(
-    "SELECT cover_file FROM games WHERE is_sample = 1",
-  );
+  const [games, wishlist] = await Promise.all([
+    handle.select<{ n: number }[]>("SELECT COUNT(*) AS n FROM games WHERE is_sample = 1"),
+    handle.select<{ n: number }[]>("SELECT COUNT(*) AS n FROM wishlist WHERE is_sample = 1"),
+  ]);
+  return { games: games[0]?.n ?? 0, wishlist: wishlist[0]?.n ?? 0 };
+}
+
+/**
+ * Clears both tables, and returns the cover files that were orphaned across the
+ * two so the caller can delete them.
+ */
+export async function clearSamples(): Promise<string[]> {
+  const handle = await db();
+  const [games, wishlist] = await Promise.all([
+    handle.select<{ cover_file: string | null }[]>(
+      "SELECT cover_file FROM games WHERE is_sample = 1",
+    ),
+    handle.select<{ cover_file: string | null }[]>(
+      "SELECT cover_file FROM wishlist WHERE is_sample = 1",
+    ),
+  ]);
   await handle.execute("DELETE FROM games WHERE is_sample = 1");
-  return rows.map((row) => row.cover_file).filter((file): file is string => !!file);
+  await handle.execute("DELETE FROM wishlist WHERE is_sample = 1");
+  return [...games, ...wishlist]
+    .map((row) => row.cover_file)
+    .filter((file): file is string => !!file);
 }

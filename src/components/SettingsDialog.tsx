@@ -6,11 +6,13 @@ import {
   errorMessage,
   saveIgdbCredentials,
 } from "../lib/api";
+import type { SampleCounts } from "../lib/db";
 import { Modal } from "./Modal";
 
 interface SettingsDialogProps {
   igdbEnabled: boolean;
-  sampleCount: number;
+  /** Counted per table rather than summed - they are different things. */
+  sampleCounts: SampleCounts;
   onIgdbChanged: (enabled: boolean) => void;
   onLoadSamples: () => Promise<void>;
   onClearSamples: () => Promise<void>;
@@ -21,7 +23,7 @@ const TWITCH_CONSOLE = "https://dev.twitch.tv/console/apps";
 
 export function SettingsDialog({
   igdbEnabled,
-  sampleCount,
+  sampleCounts,
   onIgdbChanged,
   onLoadSamples,
   onClearSamples,
@@ -58,6 +60,21 @@ export function SettingsDialog({
       setResult({ ok: false, text: errorMessage(cause) });
     }
   }
+
+  // Spelled out rather than summed. "14 samples" would be adding eight games to
+  // six wishlist entries, which are not the same kind of thing - the same
+  // reason the app header never puts the two counts on one line.
+  const total = sampleCounts.games + sampleCounts.wishlist;
+  const parts: string[] = [];
+  if (sampleCounts.games > 0) {
+    parts.push(`${sampleCounts.games} sample game${sampleCounts.games === 1 ? "" : "s"}`);
+  }
+  if (sampleCounts.wishlist > 0) {
+    parts.push(
+      `${sampleCounts.wishlist} wishlist entr${sampleCounts.wishlist === 1 ? "y" : "ies"}`,
+    );
+  }
+  const removeLabel = total === 0 ? "Remove samples" : `Remove ${parts.join(" and ")}`;
 
   async function runSample(action: () => Promise<void>) {
     setSampleBusy(true);
@@ -171,10 +188,12 @@ export function SettingsDialog({
       </section>
 
       <section className="settings-section">
-        <h3>Sample library</h3>
+        <h3>Sample data</h3>
         <p className="settings-help">
-          Adds eight example games so you can see how the app looks with a collection in it.
-          They are tagged as samples and can be removed in one click.
+          Adds eight example games and six wishlist entries, so you can see how both tabs look
+          with something in them. The wishlist entries cover all three priorities, because that
+          is what the wishlist groups by — an empty one shows none of its shape. Everything is
+          tagged as a sample and can be removed in one click.
         </p>
         <div className="settings-actions row">
           <button
@@ -183,15 +202,15 @@ export function SettingsDialog({
             disabled={sampleBusy}
             onClick={() => void runSample(onLoadSamples)}
           >
-            Load sample library
+            Load sample data
           </button>
           <button
             type="button"
             className="button danger-subtle"
-            disabled={sampleBusy || sampleCount === 0}
+            disabled={sampleBusy || total === 0}
             onClick={() => void runSample(onClearSamples)}
           >
-            Remove {sampleCount || ""} sample game{sampleCount === 1 ? "" : "s"}
+            {removeLabel}
           </button>
         </div>
       </section>

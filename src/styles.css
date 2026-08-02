@@ -35,6 +35,14 @@
   --status-abandoned: #dc2626;
   --status-playing: #22c55e;
 
+  /* The three priorities. Unlike the statuses above, these are a ranking, and
+     the colours say so: one temperature, cooling as the wanting cools. Picking
+     six unrelated hues for the statuses was right for six independent shelves,
+     and would be wrong here. See docs/adr/0006. */
+  --priority-must-have: #f97316;
+  --priority-interested: #8b5cf6;
+  --priority-someday: #64748b;
+
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -531,6 +539,19 @@ select {
   background: rgba(34, 197, 94, 0.92);
 }
 
+/* Priority badges sit where the status badge does on a library card, because
+   they answer the same question about their own kind of thing: what shelf is
+   this on. All three are dark enough for the white the badge already sets. */
+.badge.priority-must-have {
+  background: rgba(249, 115, 22, 0.92);
+}
+.badge.priority-interested {
+  background: rgba(139, 92, 246, 0.92);
+}
+.badge.priority-someday {
+  background: rgba(100, 116, 139, 0.92);
+}
+
 /* Critic score sits opposite the status badge, reading as a score chip. */
 .critic-badge {
   position: absolute;
@@ -648,6 +669,140 @@ select {
   flex: 1;
   padding: 7px 10px;
   font-size: 13px;
+}
+
+/* Three actions do not fit on one row at the grid's 178px minimum, and buying
+   is not one of three equal choices anyway - it is the thing the card is for. */
+.card-actions.stacked {
+  flex-direction: column;
+}
+
+.card-actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.card-actions-row .button {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+/* ---------- Tabs -------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 9px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  /* Keeps the row from shifting by a pixel when the active tab goes bold. */
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* ---------- Wishlist sections ------------------------------------------- */
+
+.wish-section + .wish-section {
+  margin-top: 32px;
+}
+
+.wish-section-head {
+  margin-bottom: 14px;
+}
+
+.wish-section-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.wish-section-head p {
+  margin-top: 3px;
+  /* Indented past the dot so the blurb lines up under the heading text. */
+  margin-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.priority-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.priority-dot.priority-must-have {
+  background: var(--priority-must-have);
+}
+.priority-dot.priority-interested {
+  background: var(--priority-interested);
+}
+.priority-dot.priority-someday {
+  background: var(--priority-someday);
+}
+
+.wish-section-count {
+  color: var(--text-faint);
+  font-size: 14px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+
+.wish-section-empty {
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 14px 0 2px;
+}
+
+/* The note is the wishlist card's answer to the library card's stats row: it
+   takes the slack, so the actions line up across the grid. */
+.card-note {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+/* "Not out yet" is a different kind of fact from a release year, so it does not
+   look like one. */
+.unreleased {
+  color: var(--warning);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.faint {
+  color: var(--text-faint);
 }
 
 /* ---------- Stars ------------------------------------------------------- */
