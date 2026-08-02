@@ -3,13 +3,22 @@ import { errorMessage, igdbSearch } from "../lib/api";
 import { releaseYear } from "../lib/format";
 import type { IgdbGame } from "../types";
 
-interface IgdbSearchProps {
-  onPick: (game: IgdbGame) => void;
-  /** IGDB ids already in the library, so duplicates can be called out. */
-  existingIgdbIds: Set<number>;
+/**
+ * Where the app has already seen an IGDB id. Called out, never blocked - and
+ * only ever a partial answer, because a title typed in by hand has no IGDB id
+ * to match on at all. See docs/adr/0005.
+ */
+export interface KnownIgdbIds {
+  library: Set<number>;
+  wishlist: Set<number>;
 }
 
-export function IgdbSearch({ onPick, existingIgdbIds }: IgdbSearchProps) {
+interface IgdbSearchProps {
+  onPick: (game: IgdbGame) => void;
+  known: KnownIgdbIds;
+}
+
+export function IgdbSearch({ onPick, known }: IgdbSearchProps) {
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<IgdbGame[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +93,11 @@ export function IgdbSearch({ onPick, existingIgdbIds }: IgdbSearchProps) {
         <ul className="igdb-results">
           {results.map((result) => {
             const year = releaseYear(result.release_date);
-            const duplicate = existingIgdbIds.has(result.igdb_id);
+            // Both are possible at once: nothing stops you owning a game and
+            // still having an entry for it, and saying so is more use than
+            // picking one of the two to mention.
+            const inLibrary = known.library.has(result.igdb_id);
+            const onWishlist = known.wishlist.has(result.igdb_id);
             return (
               <li key={result.igdb_id}>
                 <button
@@ -113,8 +126,14 @@ export function IgdbSearch({ onPick, existingIgdbIds }: IgdbSearchProps) {
                         </span>
                       </span>
                     )}
-                    {duplicate && (
-                      <span className="igdb-duplicate">Already in your library</span>
+                    {(inLibrary || onWishlist) && (
+                      <span className="igdb-duplicate">
+                        {inLibrary && onWishlist
+                          ? "In your library, and on your wishlist"
+                          : inLibrary
+                            ? "Already in your library"
+                            : "Already on your wishlist"}
+                      </span>
                     )}
                   </span>
                 </button>

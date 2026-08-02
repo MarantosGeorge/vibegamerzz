@@ -8,9 +8,9 @@ import {
 } from "../lib/api";
 import { splitPlaytime } from "../lib/format";
 import { IGDB_GENRES, STATUSES, STATUS_LABELS, statusHint } from "../types";
-import type { Game, GameInput, IgdbGame, Status } from "../types";
+import type { Game, GameInput, IgdbGame, Status, WishlistEntry } from "../types";
 import { CoverImage } from "./CoverImage";
-import { IgdbSearch } from "./IgdbSearch";
+import { IgdbSearch, type KnownIgdbIds } from "./IgdbSearch";
 import { Modal } from "./Modal";
 import { StarRating } from "./StarRating";
 
@@ -19,9 +19,16 @@ const ADD_GENRE = "";
 
 interface GameFormProps {
   game: Game | null;
+  /**
+   * The wishlist entry being bought, when that is why this form is open. It
+   * fills in everything the entry knew and nothing it did not - storefront and
+   * status are the two facts only the user can supply, which is the whole
+   * reason buying goes through this form at all. See docs/adr/0005.
+   */
+  buying?: WishlistEntry | null;
   storefronts: string[];
   igdbEnabled: boolean;
-  existingIgdbIds: Set<number>;
+  known: KnownIgdbIds;
   onSubmit: (input: GameInput) => Promise<void>;
   onAddStorefront: (name: string) => Promise<void>;
   onClose: () => void;
@@ -31,16 +38,17 @@ type Errors = Partial<Record<string, string>>;
 
 export function GameForm({
   game,
+  buying = null,
   storefronts,
   igdbEnabled,
-  existingIgdbIds,
+  known,
   onSubmit,
   onAddStorefront,
   onClose,
 }: GameFormProps) {
   const initialPlaytime = splitPlaytime(game?.playtime_minutes ?? 0);
 
-  const [title, setTitle] = useState(game?.title ?? "");
+  const [title, setTitle] = useState(game?.title ?? buying?.title ?? "");
   const [platform, setPlatform] = useState(game?.platform ?? storefronts[0] ?? "Other");
   const [newStorefront, setNewStorefront] = useState("");
   const [addingStorefront, setAddingStorefront] = useState(false);
@@ -53,17 +61,22 @@ export function GameForm({
   const [hours, setHours] = useState(String(initialPlaytime.hours));
   const [minutes, setMinutes] = useState(String(initialPlaytime.minutes));
   const [rating, setRating] = useState(game?.rating ?? 0);
-  const [critic, setCritic] = useState(
-    game?.critic_rating === null || game?.critic_rating === undefined
-      ? ""
-      : String(game.critic_rating),
+  const [critic, setCritic] = useState(() => {
+    const value = game?.critic_rating ?? buying?.critic_rating ?? null;
+    return value === null ? "" : String(value);
+  });
+  const [genres, setGenres] = useState<string[]>(game?.genres ?? buying?.genres ?? []);
+  const [notes, setNotes] = useState(game?.notes ?? buying?.notes ?? "");
+  const [coverFile, setCoverFile] = useState<string | null>(
+    game?.cover_file ?? buying?.cover_file ?? null,
   );
-  const [genres, setGenres] = useState<string[]>(game?.genres ?? []);
-  const [notes, setNotes] = useState(game?.notes ?? "");
-  const [coverFile, setCoverFile] = useState<string | null>(game?.cover_file ?? null);
-  const [igdbId, setIgdbId] = useState<number | null>(game?.igdb_id ?? null);
-  const [summary, setSummary] = useState<string | null>(game?.summary ?? null);
-  const [releaseDate, setReleaseDate] = useState<string | null>(game?.release_date ?? null);
+  const [igdbId, setIgdbId] = useState<number | null>(game?.igdb_id ?? buying?.igdb_id ?? null);
+  const [summary, setSummary] = useState<string | null>(
+    game?.summary ?? buying?.summary ?? null,
+  );
+  const [releaseDate, setReleaseDate] = useState<string | null>(
+    game?.release_date ?? buying?.release_date ?? null,
+  );
 
   const [imageUrl, setImageUrl] = useState("");
   const [showUrlField, setShowUrlField] = useState(false);
@@ -73,13 +86,20 @@ export function GameForm({
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  const originalCover = game?.cover_file ?? null;
+  // Also the entry's cover when buying: the file transfers to the new row and
+  // must survive, but if the user swaps it for another one on the way through,
+  // the entry it belonged to is about to be deleted and it would be orphaned.
+  // Same rule either way - delete it only if it is not the one being kept.
+  const originalCover = game?.cover_file ?? buying?.cover_file ?? null;
   // Covers written to disk during this session. Whichever ones the user does
   // not end up keeping are removed, so cancelling never litters the folder.
   const [createdCovers, setCreatedCovers] = useState<string[]>([]);
 
   const duplicateWarning =
-    igdbId !== null && igdbId !== game?.igdb_id && existingIgdbIds.has(igdbId);
+    igdbId !== null && igdbId !== game?.igdb_id && known.library.has(igdbId);
+  // Not shown while buying: you are already turning that entry into this game.
+  const onWishlistWarning =
+    !buying && igdbId !== null && igdbId !== game?.igdb_id && known.wishlist.has(igdbId);
 
   // Recomputed as the user types, from whatever is in the fields right now, so
   // typing a playtime into a Backlog game surfaces the hint immediately. Blank
@@ -284,7 +304,7 @@ export function GameForm({
 
   return (
     <Modal
-      title={game ? "Edit game" : "Add a game"}
+      title={game ? "Edit game" : buying ? "You bought it" : "Add a game"}
       onClose={() => void handleCancel()}
       wide
       footer={
@@ -319,13 +339,27 @@ export function GameForm({
           </button>
         )}
         {igdbEnabled && showIgdb && (
-          <IgdbSearch onPick={(r) => void pickIgdbResult(r)} existingIgdbIds={existingIgdbIds} />
+          <IgdbSearch onPick={(r) => void pickIgdbResult(r)} known={known} />
+        )}
+
+        {buying && (
+          <p className="notice">
+            Everything your wishlist knew about <strong>{buying.title}</strong> is filled in.
+            Pick a storefront and a status, and the wishlist entry is removed once you save.
+          </p>
         )}
 
         {duplicateWarning && (
           <p className="notice warning">
             This game is already in your library. You can still add it again — useful if you own
             it on more than one storefront.
+          </p>
+        )}
+
+        {onWishlistWarning && (
+          <p className="notice warning">
+            This game is on your wishlist. Adding it here leaves the entry in place — use
+            “I bought this” on the Wishlist tab to move it across instead.
           </p>
         )}
 

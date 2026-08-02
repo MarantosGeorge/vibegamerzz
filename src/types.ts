@@ -67,6 +67,131 @@ export interface GameInput {
 }
 
 /**
+ * How much you want a wishlist entry. Unlike `STATUSES`, this order is load
+ * bearing: it is the ranking, and it is the order the three sections of the
+ * wishlist render in, top to bottom. See docs/adr/0006.
+ */
+export const PRIORITIES = ["must-have", "interested", "someday"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+
+/**
+ * What an entry lands on when you add one. Not a placeholder for a missing
+ * answer - putting a title on the wishlist already said this much.
+ */
+export const DEFAULT_PRIORITY: Priority = "interested";
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  "must-have": "Must have",
+  interested: "Interested",
+  someday: "Someday",
+};
+
+/** The section headings, which say what each tier means rather than repeat it. */
+export const PRIORITY_BLURBS: Record<Priority, string> = {
+  "must-have": "You would buy these today at full price.",
+  interested: "You want these, and have not thought harder than that.",
+  someday: "You still want these, and have decided not to buy them for now.",
+};
+
+/**
+ * A wishlist entry: a title you want and do not own. Mirrors the `wishlist`
+ * table exactly. Deliberately not a `Game` - there is no storefront, no status,
+ * no playtime and no completion here, because all four are facts about owning
+ * something. See docs/adr/0005.
+ */
+export interface WishlistEntry {
+  id: number;
+  title: string;
+  priority: Priority;
+  /** Aggregated critic score out of 100, or null when nobody has scored it. */
+  critic_rating: number | null;
+  genres: string[];
+  cover_file: string | null;
+  notes: string | null;
+  igdb_id: number | null;
+  summary: string | null;
+  release_date: string | null;
+  is_sample: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The editable subset - everything the wishlist form owns. */
+export interface WishlistInput {
+  title: string;
+  priority: Priority;
+  critic_rating: number | null;
+  genres: string[];
+  cover_file: string | null;
+  notes: string | null;
+  igdb_id: number | null;
+  summary: string | null;
+  release_date: string | null;
+}
+
+/**
+ * Whether a title is not out yet. Derived from the release date and stored
+ * nowhere, so an entry stops being unreleased on its own as the date passes.
+ *
+ * It answers why you do not own a game; priority answers how much you want it.
+ * Neither constrains the other - an unreleased game can sit on any tier.
+ */
+export function isUnreleased(releaseDate: string | null, today = new Date()): boolean {
+  if (!releaseDate) return false;
+  const released = new Date(`${releaseDate}T00:00:00`);
+  if (Number.isNaN(released.getTime())) return false;
+  return released.getTime() > today.getTime();
+}
+
+/**
+ * What the wishlist is ordered by, within each priority section. Three of the
+ * library's six keys are missing because they are facts about owning a game:
+ * you cannot have rated, played or made progress in something you do not have.
+ * `release` is the one key the library has no use for and the wishlist does.
+ */
+export const WISHLIST_SORT_KEYS = ["added", "title", "critic", "release"] as const;
+export type WishlistSortKey = (typeof WISHLIST_SORT_KEYS)[number];
+
+export const WISHLIST_SORT_LABELS: Record<WishlistSortKey, string> = {
+  added: "Date added",
+  title: "Title",
+  critic: "Critic score",
+  release: "Release date",
+};
+
+export const WISHLIST_SORT_DIRECTION_LABELS: Record<
+  WishlistSortKey,
+  Record<SortDirection, string>
+> = {
+  added: { natural: "Newest first", reversed: "Oldest first" },
+  title: { natural: "A–Z", reversed: "Z–A" },
+  critic: { natural: "Highest first", reversed: "Lowest first" },
+  // Soonest-first is what a wishlist wants from a release date - the thing
+  // coming out next week is the thing worth knowing about - so it is natural
+  // here even though it ascends, exactly as Title does.
+  release: { natural: "Soonest first", reversed: "Latest first" },
+};
+
+/** Title and release date both run A–Z / earliest-first in their natural order. */
+export function isWishlistAscending(
+  key: WishlistSortKey,
+  direction: SortDirection,
+): boolean {
+  const naturalAscends = key === "title" || key === "release";
+  return direction === "natural" ? naturalAscends : !naturalAscends;
+}
+
+/**
+ * ADR-0004's absence rule, applied to the wishlist's two nullable keys. Priority
+ * is not among them and never will be: it cannot be absent.
+ */
+export function hasWishlistSortValue(entry: WishlistEntry, key: WishlistSortKey): boolean {
+  if (key === "critic") return entry.critic_rating !== null;
+  if (key === "release") return entry.release_date !== null;
+  return true;
+}
+
+/**
  * IGDB's genre vocabulary, for picking genres by hand on a game that was not
  * imported. Anything IGDB returns that is not on this list is merged in at
  * runtime, so the picker self-heals if IGDB renames or adds one.

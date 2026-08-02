@@ -254,6 +254,46 @@ CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
 CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
 "#;
 
+/// The wishlist: titles you want and do not own.
+///
+/// A new table rather than new columns on `games`, because a wishlist entry is
+/// not a game - it has no storefront, no status, no playtime and no completion,
+/// which is four of the six things a game is made of. Keeping them apart is what
+/// lets every NOT NULL on `games` stay true. See docs/adr/0005.
+///
+/// The seven metadata columns duplicated from `games` are the price of that, and
+/// they are deliberately identical in name and type: buying an entry copies them
+/// across field for field, and a promotion that has to translate column names is
+/// a promotion that will eventually translate one of them wrong.
+///
+/// `priority` is NOT NULL with a default and has no absent value at all, which is
+/// the one place in this schema that ADR-0004's absence rule does not apply.
+/// A priority is not a fact about the world that can fail to exist - it is an
+/// assertion, and putting a title here is that assertion. See docs/adr/0006.
+const WISHLIST: &str = r#"
+CREATE TABLE IF NOT EXISTS wishlist (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    title         TEXT    NOT NULL,
+    priority      TEXT    NOT NULL DEFAULT 'interested'
+                  CHECK (priority IN ('must-have','interested','someday')),
+    critic_rating INTEGER
+                  CHECK (critic_rating IS NULL
+                         OR (critic_rating >= 0 AND critic_rating <= 100)),
+    genres        TEXT,
+    cover_file    TEXT,
+    notes         TEXT,
+    igdb_id       INTEGER,
+    summary       TEXT,
+    release_date  TEXT,
+    is_sample     INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT    NOT NULL,
+    updated_at    TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wishlist_priority ON wishlist(priority);
+CREATE INDEX IF NOT EXISTS idx_wishlist_created  ON wishlist(created_at);
+"#;
+
 fn migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -278,6 +318,12 @@ fn migrations() -> Vec<Migration> {
             version: 4,
             description: "completion can be absent: achievement_pct is nullable",
             sql: COMPLETION_CAN_BE_ABSENT,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "wishlist: titles you want and do not own",
+            sql: WISHLIST,
             kind: MigrationKind::Up,
         },
     ]

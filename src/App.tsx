@@ -4,8 +4,12 @@ import { EmptyState } from "./components/EmptyState";
 import { GameCard } from "./components/GameCard";
 import { GameForm } from "./components/GameForm";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { Tabs, type Tab } from "./components/Tabs";
 import { ToastStack, type ToastMessage } from "./components/Toast";
 import { Toolbar, type Filters } from "./components/Toolbar";
+import { WishlistCard } from "./components/WishlistCard";
+import { WishlistForm } from "./components/WishlistForm";
+import { WishlistToolbar, type WishlistFilters } from "./components/WishlistToolbar";
 import {
   deleteCover,
   errorMessage,
@@ -13,8 +17,23 @@ import {
   initCovers,
 } from "./lib/api";
 import * as db from "./lib/db";
-import { hasSortValue, matchesCriticBand, STATUSES } from "./types";
-import type { Game, GameInput, Status } from "./types";
+import {
+  hasSortValue,
+  hasWishlistSortValue,
+  matchesCriticBand,
+  PRIORITIES,
+  PRIORITY_BLURBS,
+  PRIORITY_LABELS,
+  STATUSES,
+} from "./types";
+import type {
+  Game,
+  GameInput,
+  Priority,
+  Status,
+  WishlistEntry,
+  WishlistInput,
+} from "./types";
 
 const DEFAULT_FILTERS: Filters = {
   search: "",
@@ -26,18 +45,47 @@ const DEFAULT_FILTERS: Filters = {
   direction: "natural",
 };
 
+const DEFAULT_WISHLIST_FILTERS: WishlistFilters = {
+  search: "",
+  genre: "all",
+  critic: "all",
+  sort: "added",
+  direction: "natural",
+};
+
 export default function App() {
   const [games, setGames] = useState<Game[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistEntry[]>([]);
   const [storefronts, setStorefronts] = useState<string[]>([]);
   const [igdbEnabled, setIgdbEnabled] = useState(false);
-  const [sampleCount, setSampleCount] = useState(0);
+  const [sampleCounts, setSampleCounts] = useState<db.SampleCounts>({
+    games: 0,
+    wishlist: 0,
+  });
 
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState<string | null>(null);
 
+  const [tab, setTab] = useState<Tab>("library");
+  // One filter state per tab, held apart so switching tabs is never destructive
+  // - a search you typed on one is still there when you come back. Neither
+  // survives a restart, which is how the library has always behaved.
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [formFor, setFormFor] = useState<{ game: Game | null } | null>(null);
+  const [wishFilters, setWishFilters] = useState<WishlistFilters>(
+    DEFAULT_WISHLIST_FILTERS,
+  );
+
+  // `buying` carries the entry a new game is being promoted from, so saving can
+  // delete it. Null on an ordinary add. See docs/adr/0005.
+  const [formFor, setFormFor] = useState<{
+    game: Game | null;
+    buying: WishlistEntry | null;
+  } | null>(null);
+  const [wishFormFor, setWishFormFor] = useState<{ entry: WishlistEntry | null } | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<Game | null>(null);
+  const [removing, setRemoving] = useState<WishlistEntry | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -51,14 +99,16 @@ export default function App() {
   }, []);
 
   const refresh = useCallback(async () => {
-    const [rows, fronts, samples] = await Promise.all([
+    const [rows, wishRows, fronts, samples] = await Promise.all([
       db.listGames(),
+      db.listWishlist(),
       db.listStorefronts(),
-      db.countSampleGames(),
+      db.countSamples(),
     ]);
     setGames(rows);
+    setWishlist(wishRows);
     setStorefronts(fronts);
-    setSampleCount(samples);
+    setSampleCounts(samples);
   }, []);
 
   useEffect(() => {
@@ -81,23 +131,50 @@ export default function App() {
     return counts;
   }, [games]);
 
-  const existingIgdbIds = useMemo(
-    () =>
-      new Set(
+  const priorityCounts = useMemo(() => {
+    const counts = Object.fromEntries(PRIORITIES.map((p) => [p, 0])) as Record<
+      Priority,
+      number
+    >;
+    for (const entry of wishlist) counts[entry.priority] += 1;
+    return counts;
+  }, [wishlist]);
+
+  // Both sets, because a title can honestly be in both places and saying which
+  // is more use than saying "seen before". See docs/adr/0005.
+  const knownIgdbIds = useMemo(
+    () => ({
+      library: new Set(
         games
           .map((game) => game.igdb_id)
           .filter((id): id is number => typeof id === "number"),
       ),
-    [games],
+      wishlist: new Set(
+        wishlist
+          .map((entry) => entry.igdb_id)
+          .filter((id): id is number => typeof id === "number"),
+      ),
+    }),
+    [games, wishlist],
   );
 
   // Only genres in use, sorted, so the filter can never offer an empty result.
+  // Derived per tab rather than pooled: a genre you only ever wished for should
+  // not sit in the library's dropdown returning nothing.
   const genresInUse = useMemo(
     () =>
       [...new Set(games.flatMap((game) => game.genres))].sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: "base" }),
       ),
     [games],
+  );
+
+  const wishGenresInUse = useMemo(
+    () =>
+      [...new Set(wishlist.flatMap((entry) => entry.genres))].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" }),
+      ),
+    [wishlist],
   );
 
   const visible = useMemo(() => {
@@ -157,6 +234,75 @@ export default function App() {
     return [...valued, ...unvalued];
   }, [games, filters]);
 
+  /**
+   * The wishlist, filtered, sorted and split into its three sections.
+   *
+   * Every tier is returned whether or not it has entries, because the headings
+   * are how the tab explains itself - a wishlist with nothing on Must have is
+   * telling you something, and hiding the heading would hide it. The rendering
+   * decides what to do with an empty one.
+   */
+  const wishSections = useMemo(() => {
+    const term = wishFilters.search.trim().toLowerCase();
+    const filtered = wishlist.filter((entry) => {
+      if (wishFilters.genre !== "all" && !entry.genres.includes(wishFilters.genre)) {
+        return false;
+      }
+      if (!matchesCriticBand(entry.critic_rating, wishFilters.critic)) return false;
+      if (term && !entry.title.toLowerCase().includes(term)) return false;
+      return true;
+    });
+
+    const byTitle = (a: WishlistEntry, b: WishlistEntry) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+
+    // Same shape as the library's sort, and for the same reason: entries with
+    // no value for the active key sit out the ordering and land at the bottom
+    // of their section in both directions. See docs/adr/0004.
+    const flip = wishFilters.direction === "reversed" ? -1 : 1;
+
+    const order = (rows: WishlistEntry[]) => {
+      const valued: WishlistEntry[] = [];
+      const unvalued: WishlistEntry[] = [];
+      for (const entry of rows) {
+        (hasWishlistSortValue(entry, wishFilters.sort) ? valued : unvalued).push(entry);
+      }
+
+      valued.sort((a, b) => {
+        switch (wishFilters.sort) {
+          case "title":
+            return flip * byTitle(a, b);
+          case "critic":
+            return flip * ((b.critic_rating ?? 0) - (a.critic_rating ?? 0)) || byTitle(a, b);
+          // Nulls are partitioned out above, so the ?? never fires. Soonest
+          // first is the natural direction here - the thing coming out next is
+          // the thing a wishlist is asking about.
+          case "release":
+            return (
+              flip * (a.release_date ?? "").localeCompare(b.release_date ?? "") ||
+              byTitle(a, b)
+            );
+          case "added":
+          default:
+            return flip * (b.created_at.localeCompare(a.created_at) || b.id - a.id);
+        }
+      });
+
+      unvalued.sort(byTitle);
+      return [...valued, ...unvalued];
+    };
+
+    return PRIORITIES.map((priority) => ({
+      priority,
+      entries: order(filtered.filter((entry) => entry.priority === priority)),
+    }));
+  }, [wishlist, wishFilters]);
+
+  const wishVisibleCount = wishSections.reduce(
+    (total, section) => total + section.entries.length,
+    0,
+  );
+
   const filtersActive =
     filters.search.trim() !== "" ||
     filters.status !== "all" ||
@@ -164,16 +310,79 @@ export default function App() {
     filters.genre !== "all" ||
     filters.critic !== "all";
 
+  const wishFiltersActive =
+    wishFilters.search.trim() !== "" ||
+    wishFilters.genre !== "all" ||
+    wishFilters.critic !== "all";
+
+  /**
+   * The header line, which describes the tab you are on and only that tab. Each
+   * leads with its own total and then the two figures worth knowing about it -
+   * for the library the shelves you finished on, for the wishlist the tier you
+   * would actually spend money on today.
+   */
+  const summary = useMemo(() => {
+    if (tab === "wishlist") {
+      if (wishlist.length === 0) return "Games you want and do not own";
+      const n = wishlist.length;
+      return `${n} on your wishlist · ${priorityCounts["must-have"]} must have`;
+    }
+    if (games.length === 0) return "Your PC game library";
+    const n = games.length;
+    return `${n} game${n === 1 ? "" : "s"} · ${statusCounts.completed} completed · ${statusCounts.platinum} platinum`;
+  }, [tab, games.length, wishlist.length, statusCounts, priorityCounts]);
+
   async function handleSubmit(input: GameInput) {
     const editing = formFor?.game ?? null;
+    const buying = formFor?.buying ?? null;
     if (editing) {
       await db.updateGame(editing.id, input);
+    } else if (buying) {
+      // Writes the game, then drops the entry. Only on save - cancelling the
+      // form leaves the entry exactly where it was. See docs/adr/0005.
+      await db.buyWishlistEntry(buying.id, input);
     } else {
       await db.createGame(input);
     }
     await refresh();
     setFormFor(null);
-    notify(editing ? `Updated ${input.title}.` : `Added ${input.title} to your library.`);
+    if (buying) {
+      // The tab does not switch on its own. You said you bought one thing, not
+      // that you were done with the wishlist.
+      notify(`${input.title} moved to your library.`);
+    } else {
+      notify(editing ? `Updated ${input.title}.` : `Added ${input.title} to your library.`);
+    }
+  }
+
+  async function handleWishlistSubmit(input: WishlistInput) {
+    const editing = wishFormFor?.entry ?? null;
+    if (editing) {
+      await db.updateWishlistEntry(editing.id, input);
+    } else {
+      await db.createWishlistEntry(input);
+    }
+    await refresh();
+    setWishFormFor(null);
+    notify(editing ? `Updated ${input.title}.` : `Added ${input.title} to your wishlist.`);
+  }
+
+  async function handleRemoveEntry() {
+    if (!removing) return;
+    setDeleteBusy(true);
+    try {
+      await db.deleteWishlistEntry(removing.id);
+      if (removing.cover_file) {
+        await deleteCover(removing.cover_file).catch(() => undefined);
+      }
+      await refresh();
+      notify(`Removed ${removing.title} from your wishlist.`);
+      setRemoving(null);
+    } catch (cause) {
+      notify(errorMessage(cause), "error");
+    } finally {
+      setDeleteBusy(false);
+    }
   }
 
   async function handleAddStorefront(name: string) {
@@ -199,9 +408,9 @@ export default function App() {
 
   async function handleLoadSamples() {
     try {
-      await db.loadSampleGames();
+      await db.loadSamples();
       await refresh();
-      notify("Added eight sample games.");
+      notify("Added a sample library and wishlist.");
     } catch (cause) {
       notify(errorMessage(cause), "error");
     }
@@ -209,10 +418,10 @@ export default function App() {
 
   async function handleClearSamples() {
     try {
-      const orphans = await db.clearSampleGames();
+      const orphans = await db.clearSamples();
       await Promise.all(orphans.map((file) => deleteCover(file).catch(() => undefined)));
       await refresh();
-      notify("Removed the sample games.");
+      notify("Removed the sample data.");
     } catch (cause) {
       notify(errorMessage(cause), "error");
     }
@@ -244,13 +453,11 @@ export default function App() {
       <header className="app-header">
         <div className="brand">
           <h1>gamerzz</h1>
-          <p>
-            {loading
-              ? "Loading your library…"
-              : games.length === 0
-                ? "Your PC game library"
-                : `${games.length} game${games.length === 1 ? "" : "s"} · ${statusCounts.completed} completed · ${statusCounts.platinum} platinum`}
-          </p>
+          {/* Per tab, and never both counts on one line. Owned and wanted are
+              different kinds of thing, and a header that put them side by side
+              would invite reading a total across them - which is the mistake
+              docs/adr/0001 exists to prevent, one level up. */}
+          <p>{loading ? "Loading your library…" : summary}</p>
         </div>
         <div className="header-actions">
           <button
@@ -260,26 +467,29 @@ export default function App() {
           >
             ⚙ Settings
           </button>
-          <button
-            type="button"
-            className="button primary"
-            onClick={() => setFormFor({ game: null })}
-          >
-            + Add game
-          </button>
+          {tab === "library" ? (
+            <button
+              type="button"
+              className="button primary"
+              onClick={() => setFormFor({ game: null, buying: null })}
+            >
+              + Add game
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button primary"
+              onClick={() => setWishFormFor({ entry: null })}
+            >
+              + Add to wishlist
+            </button>
+          )}
         </div>
       </header>
 
-      {!loading && games.length > 0 && (
-        <Toolbar
-          filters={filters}
-          onChange={setFilters}
-          storefronts={storefronts}
-          genres={genresInUse}
-          statusCounts={statusCounts}
-          total={games.length}
-        />
-      )}
+      {/* Always rendered, even with both tabs empty: a tab bar that appears
+          only once you have data is a tab bar nobody discovers. */}
+      <Tabs active={tab} onChange={setTab} />
 
       {loading && (
         <div className="grid">
@@ -295,52 +505,155 @@ export default function App() {
         </div>
       )}
 
-      {!loading && games.length === 0 && (
-        <EmptyState
-          variant="library"
-          onAdd={() => setFormFor({ game: null })}
-          onClearFilters={() => setFilters(DEFAULT_FILTERS)}
-        />
-      )}
-
-      {!loading && games.length > 0 && visible.length === 0 && (
-        <EmptyState
-          variant="filter"
-          onAdd={() => setFormFor({ game: null })}
-          onClearFilters={() => setFilters(DEFAULT_FILTERS)}
-        />
-      )}
-
-      {!loading && visible.length > 0 && (
-        <>
-          {filtersActive && (
-            <p className="result-count">
-              Showing {visible.length} of {games.length} games
-            </p>
+      {!loading && tab === "library" && (
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library">
+          {games.length > 0 && (
+            <Toolbar
+              filters={filters}
+              onChange={setFilters}
+              storefronts={storefronts}
+              genres={genresInUse}
+              statusCounts={statusCounts}
+              total={games.length}
+            />
           )}
-          <div className="grid">
-            {visible.map((game) => (
-              <GameCard
-                key={game.id}
-                game={game}
-                onEdit={(target) => setFormFor({ game: target })}
-                onDelete={(target) => setDeleting(target)}
-              />
-            ))}
-          </div>
-        </>
+
+          {games.length === 0 && (
+            <EmptyState
+              variant="library"
+              onAdd={() => setFormFor({ game: null, buying: null })}
+              onClearFilters={() => setFilters(DEFAULT_FILTERS)}
+            />
+          )}
+
+          {games.length > 0 && visible.length === 0 && (
+            <EmptyState
+              variant="filter"
+              onAdd={() => setFormFor({ game: null, buying: null })}
+              onClearFilters={() => setFilters(DEFAULT_FILTERS)}
+            />
+          )}
+
+          {visible.length > 0 && (
+            <>
+              {filtersActive && (
+                <p className="result-count">
+                  Showing {visible.length} of {games.length} games
+                </p>
+              )}
+              <div className="grid">
+                {visible.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    onEdit={(target) => setFormFor({ game: target, buying: null })}
+                    onDelete={(target) => setDeleting(target)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!loading && tab === "wishlist" && (
+        <div id="panel-wishlist" role="tabpanel" aria-labelledby="tab-wishlist">
+          {wishlist.length > 0 && (
+            <WishlistToolbar
+              filters={wishFilters}
+              onChange={setWishFilters}
+              genres={wishGenresInUse}
+            />
+          )}
+
+          {wishlist.length === 0 && (
+            <EmptyState
+              variant="wishlist"
+              onAdd={() => setWishFormFor({ entry: null })}
+              onClearFilters={() => setWishFilters(DEFAULT_WISHLIST_FILTERS)}
+            />
+          )}
+
+          {wishlist.length > 0 && wishVisibleCount === 0 && (
+            <EmptyState
+              variant="wishlist-filter"
+              onAdd={() => setWishFormFor({ entry: null })}
+              onClearFilters={() => setWishFilters(DEFAULT_WISHLIST_FILTERS)}
+            />
+          )}
+
+          {wishVisibleCount > 0 && (
+            <>
+              {wishFiltersActive && (
+                <p className="result-count">
+                  Showing {wishVisibleCount} of {wishlist.length} entries
+                </p>
+              )}
+              {/* Top to bottom in priority order, which is the ranking itself
+                  rather than a sort you happen to have chosen. A tier with
+                  nothing in it still shows its heading while unfiltered - an
+                  empty Must have is worth seeing. Under a filter it is dropped,
+                  because "nothing matched" is not the same statement. */}
+              {wishSections.map(({ priority, entries }) =>
+                entries.length === 0 && wishFiltersActive ? null : (
+                  <section key={priority} className="wish-section">
+                    <div className="wish-section-head">
+                      <h2>
+                        <span className={`priority-dot priority-${priority}`} aria-hidden="true" />
+                        {PRIORITY_LABELS[priority]}
+                        <span className="wish-section-count">
+                          {wishFiltersActive
+                            ? entries.length
+                            : priorityCounts[priority]}
+                        </span>
+                      </h2>
+                      <p>{PRIORITY_BLURBS[priority]}</p>
+                    </div>
+                    {entries.length === 0 ? (
+                      <p className="wish-section-empty">Nothing here.</p>
+                    ) : (
+                      <div className="grid">
+                        {entries.map((entry) => (
+                          <WishlistCard
+                            key={entry.id}
+                            entry={entry}
+                            onEdit={(target) => setWishFormFor({ entry: target })}
+                            onBuy={(target) => setFormFor({ game: null, buying: target })}
+                            onDelete={(target) => setRemoving(target)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                ),
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {formFor && (
         <GameForm
-          key={formFor.game?.id ?? "new"}
+          key={formFor.game?.id ?? (formFor.buying ? `buy-${formFor.buying.id}` : "new")}
           game={formFor.game}
+          buying={formFor.buying}
           storefronts={storefronts}
           igdbEnabled={igdbEnabled}
-          existingIgdbIds={existingIgdbIds}
+          known={knownIgdbIds}
           onSubmit={handleSubmit}
           onAddStorefront={handleAddStorefront}
           onClose={() => setFormFor(null)}
+        />
+      )}
+
+      {wishFormFor && (
+        <WishlistForm
+          key={wishFormFor.entry?.id ?? "new"}
+          entry={wishFormFor.entry}
+          igdbEnabled={igdbEnabled}
+          known={knownIgdbIds}
+          onSubmit={handleWishlistSubmit}
+          onClose={() => setWishFormFor(null)}
         />
       )}
 
@@ -355,10 +668,21 @@ export default function App() {
         />
       )}
 
+      {removing && (
+        <ConfirmDialog
+          title="Remove this from your wishlist?"
+          message={`"${removing.title}" will be removed from your wishlist, along with its cover image. If you bought it, use "I bought this" instead so it moves to your library.`}
+          confirmLabel="Remove"
+          busy={deleteBusy}
+          onConfirm={() => void handleRemoveEntry()}
+          onCancel={() => setRemoving(null)}
+        />
+      )}
+
       {showSettings && (
         <SettingsDialog
           igdbEnabled={igdbEnabled}
-          sampleCount={sampleCount}
+          sampleCounts={sampleCounts}
           onIgdbChanged={setIgdbEnabled}
           onLoadSamples={handleLoadSamples}
           onClearSamples={handleClearSamples}
