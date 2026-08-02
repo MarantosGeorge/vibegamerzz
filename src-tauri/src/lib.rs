@@ -185,6 +185,75 @@ CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
 CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
 "#;
 
+/// Completion becomes absent-able: `achievement_pct` drops its NOT NULL.
+///
+/// NULL means "this game has no achievements to earn" - Undertale, most itch.io
+/// and GOG titles, a good chunk of the Epic catalogue. Until now that was
+/// indistinguishable from an honest 0%, which is the opposite fact. See
+/// docs/adr/0004.
+///
+/// One column rather than a `has_achievements` flag beside the number, because
+/// two fields describing one fact drift apart - the same reasoning that keeps
+/// progress in `status` alone, up at the top of this file. A flag would let the
+/// database hold "no achievements" and "87%" at once; NULL cannot.
+///
+/// Nothing is backfilled. A row sitting at 0 stays a row sitting at 0: the
+/// migration cannot tell an unplayed game from an achievement-less one, and
+/// guessing from `platform` would mislabel every Epic game that does have them.
+/// Re-filing is the user's call, as it was in `SIX_STATUSES`.
+///
+/// SQLite cannot drop NOT NULL in place, so this is the same rebuild and
+/// copy-across as the two migrations above.
+const COMPLETION_CAN_BE_ABSENT: &str = r#"
+CREATE TABLE games_v4 (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            TEXT    NOT NULL,
+    platform         TEXT    NOT NULL DEFAULT 'Other',
+    status           TEXT    NOT NULL DEFAULT 'backlog'
+                     CHECK (status IN ('backlog','attempted','completed',
+                                       'platinum','abandoned','playing')),
+    achievement_pct  INTEGER
+                     CHECK (achievement_pct IS NULL
+                            OR (achievement_pct >= 0 AND achievement_pct <= 100)),
+    playtime_minutes INTEGER NOT NULL DEFAULT 0
+                     CHECK (playtime_minutes >= 0),
+    rating           REAL    NOT NULL DEFAULT 0
+                     CHECK (rating >= 0 AND rating <= 5
+                            AND rating * 2 = CAST(rating * 2 AS INTEGER)),
+    critic_rating    INTEGER
+                     CHECK (critic_rating IS NULL
+                            OR (critic_rating >= 0 AND critic_rating <= 100)),
+    genres           TEXT,
+    cover_file       TEXT,
+    notes            TEXT,
+    igdb_id          INTEGER,
+    summary          TEXT,
+    release_date     TEXT,
+    is_sample        INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT    NOT NULL,
+    updated_at       TEXT    NOT NULL
+);
+
+INSERT INTO games_v4 (
+    id, title, platform, status, achievement_pct, playtime_minutes, rating,
+    critic_rating, genres, cover_file, notes, igdb_id, summary, release_date,
+    is_sample, created_at, updated_at
+)
+SELECT
+    id, title, platform, status, achievement_pct, playtime_minutes, rating,
+    critic_rating, genres, cover_file, notes, igdb_id, summary, release_date,
+    is_sample, created_at, updated_at
+FROM games;
+
+DROP TABLE games;
+ALTER TABLE games_v4 RENAME TO games;
+
+-- Dropping the table dropped its indexes with it.
+CREATE INDEX IF NOT EXISTS idx_games_status   ON games(status);
+CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
+CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
+"#;
+
 fn migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -203,6 +272,12 @@ fn migrations() -> Vec<Migration> {
             version: 3,
             description: "six statuses: add attempted and platinum",
             sql: SIX_STATUSES,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 4,
+            description: "completion can be absent: achievement_pct is nullable",
+            sql: COMPLETION_CAN_BE_ABSENT,
             kind: MigrationKind::Up,
         },
     ]

@@ -45,7 +45,11 @@ export function GameForm({
   const [newStorefront, setNewStorefront] = useState("");
   const [addingStorefront, setAddingStorefront] = useState(false);
   const [status, setStatus] = useState<Status>(game?.status ?? "backlog");
+  // The typed percentage and the "has none" fact are held apart, so ticking the
+  // box and changing your mind gives you back the number you had rather than a
+  // zero. Only one of the two is ever saved - see `validate`.
   const [achievement, setAchievement] = useState(String(game?.achievement_pct ?? 0));
+  const [noAchievements, setNoAchievements] = useState(game?.achievement_pct === null);
   const [hours, setHours] = useState(String(initialPlaytime.hours));
   const [minutes, setMinutes] = useState(String(initialPlaytime.minutes));
   const [rating, setRating] = useState(game?.rating ?? 0);
@@ -84,7 +88,7 @@ export function GameForm({
   const hint = statusHint(
     status,
     (Number(hours) || 0) * 60 + (Number(minutes) || 0),
-    Number(achievement) || 0,
+    noAchievements ? null : Number(achievement) || 0,
   );
 
   // The known vocabulary plus anything IGDB supplied that is not on it, so a
@@ -206,12 +210,18 @@ export function GameForm({
 
     if (!platform) next.platform = "Choose a storefront.";
 
-    const pct = Number(achievement);
-    if (achievement.trim() === "" || !Number.isFinite(pct)) {
-      next.achievement = "Enter a number between 0 and 100.";
-    } else if (!Number.isInteger(pct) || pct < 0 || pct > 100) {
-      next.achievement = "Achievements must be a whole number between 0 and 100.";
+    // Nothing to validate when the game has none: the field is disabled, and
+    // whatever is sitting in it is on its way to being discarded rather than
+    // saved. `pct` is what actually gets written - null, or the number typed.
+    const typed = Number(achievement);
+    if (!noAchievements) {
+      if (achievement.trim() === "" || !Number.isFinite(typed)) {
+        next.achievement = "Enter a number between 0 and 100.";
+      } else if (!Number.isInteger(typed) || typed < 0 || typed > 100) {
+        next.achievement = "Achievements must be a whole number between 0 and 100.";
+      }
     }
+    const pct = noAchievements ? null : typed;
 
     const h = hours.trim() === "" ? 0 : Number(hours);
     const m = minutes.trim() === "" ? 0 : Number(minutes);
@@ -461,15 +471,19 @@ export function GameForm({
             </div>
 
             <div className="field-row">
-              <label className="field">
-                <span className="field-label">Achievements completed</span>
+              <div className="field">
+                <label className="field-label" htmlFor="achievement-pct">
+                  Achievements completed
+                </label>
                 <div className="suffix-input">
                   <input
+                    id="achievement-pct"
                     type="number"
                     min={0}
                     max={100}
                     step={1}
                     value={achievement}
+                    disabled={noAchievements}
                     onChange={(event) => {
                       setAchievement(event.target.value);
                       clearError("achievement");
@@ -478,8 +492,20 @@ export function GameForm({
                   />
                   <span>%</span>
                 </div>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={noAchievements}
+                    onChange={(event) => {
+                      setNoAchievements(event.target.checked);
+                      // A number that can no longer be saved must not stay red.
+                      if (event.target.checked) clearError("achievement");
+                    }}
+                  />
+                  <span>This game has no achievements</span>
+                </label>
                 {errors.achievement && <span className="field-error">{errors.achievement}</span>}
-              </label>
+              </div>
 
               <div className="field">
                 <span className="field-label">Play time</span>

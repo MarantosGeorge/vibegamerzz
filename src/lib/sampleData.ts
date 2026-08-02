@@ -13,7 +13,7 @@ interface SampleGame {
   title: string;
   platform: string;
   status: Status;
-  achievement_pct: number;
+  achievement_pct: number | null;
   playtime_minutes: number;
   rating: number;
   critic_rating: number | null;
@@ -56,7 +56,9 @@ export const SAMPLE_GAMES: SampleGame[] = [
     title: "Cyberpunk 2077",
     platform: "GOG",
     status: "completed",
-    achievement_pct: 64,
+    // Completed at 100%, so the demo library carries one game that fills the
+    // progress bar and one that trips the "Platinum?" hint. See docs/adr/0002.
+    achievement_pct: 100,
     playtime_minutes: 5_280,
     rating: 4.5,
     critic_rating: 86,
@@ -126,7 +128,9 @@ export const SAMPLE_GAMES: SampleGame[] = [
     title: "Return of the Obra Dinn",
     platform: "itch.io",
     status: "completed",
-    achievement_pct: 100,
+    // No achievements to earn rather than none earned - itch.io has no
+    // achievement system at all. See docs/adr/0004.
+    achievement_pct: null,
     playtime_minutes: 570,
     rating: 5,
     // Left unscored on purpose: plenty of IGDB entries have no critic

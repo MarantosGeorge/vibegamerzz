@@ -15,6 +15,10 @@ _Avoid_: Platform, launcher
 Which of six shelves a game sits on. Mutually exclusive, and always yours to choose.
 _Avoid_: State, progress, category, stage
 
+**Completion**:
+How much of a game's achievements you have earned. A game may have none to earn — which is not the same as zero earned, and never settles what shelf the game belongs on.
+_Avoid_: Progress, achievements %
+
 **Sort**:
 Two independent choices — a **key** and a **direction**.
 
@@ -26,7 +30,7 @@ Which way round the key runs, read relative to that key: _natural_ is A–Z for 
 _Avoid_: Ascending, descending — they don't survive contact with title, where the conventional direction is the opposite of every other key's.
 
 **Unrated / unscored**:
-A game carrying no value for the key in play — no critic score, or no rating from you. Not a low value: absence sits outside the ordering, and these games sit at the bottom of the library in both directions.
+A game carrying no value for the key in play — no critic score, no rating from you, or no achievements to earn. Not a low value: absence sits outside the ordering, and these games sit at the bottom of the library in both directions.
 
 ### The six statuses
 
@@ -45,7 +49,7 @@ The main credits have rolled — the story is finished, along with whatever side
 _Avoid_: Finished, Beaten, Done
 
 **Platinum**:
-Completely done with the game, by whatever measure fits it: its achievements, its own completion metric, or your own standard. The achievement counter is evidence of Platinum, never the definition — plenty of games have no achievements at all.
+Completely done with the game, by whatever measure fits it: its achievements, its own completion metric, or your own standard. The achievement counter is evidence of Platinum, never the definition — plenty of games have no achievements at all, and the library records that they have none rather than filing them at zero.
 _Avoid_: 100%, Mastered, Completionist
 
 **Abandoned**:

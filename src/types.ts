@@ -30,7 +30,8 @@ export interface Game {
   title: string;
   platform: string;
   status: Status;
-  achievement_pct: number;
+  /** Percentage of achievements earned, or null when the game has none. */
+  achievement_pct: number | null;
   playtime_minutes: number;
   /** Your own score, 0–5 in halves. `0` means unrated. */
   rating: number;
@@ -53,7 +54,7 @@ export interface GameInput {
   title: string;
   platform: string;
   status: Status;
-  achievement_pct: number;
+  achievement_pct: number | null;
   playtime_minutes: number;
   rating: number;
   critic_rating: number | null;
@@ -180,14 +181,17 @@ export function isAscending(key: SortKey, direction: SortDirection): boolean {
  * last in both directions - no score is not a low score, and floating every
  * unrated game to the top is not what "Lowest rated" is asking for.
  *
- * Only two keys can be absent: `critic_rating` is genuinely null when nobody
- * has scored a game, and `rating` uses 0 to mean unrated. Playtime and
- * completion are excluded on purpose - a 0 there is an honest zero, and belongs
- * at the bottom of "Most played" like any other number.
+ * Three keys can be absent: `critic_rating` is null when nobody has scored a
+ * game, `rating` uses 0 to mean unrated, and `achievement_pct` is null when the
+ * game has no achievements to earn. Playtime is excluded on purpose - a 0 there
+ * is an honest zero, and belongs at the bottom of "Most played" like any other
+ * number. So is a 0 in completion, which is why absence had to stop being
+ * spelled 0 before this could work at all. See docs/adr/0004.
  */
 export function hasSortValue(game: Game, key: SortKey): boolean {
   if (key === "critic") return game.critic_rating !== null;
   if (key === "rating") return game.rating > 0;
+  if (key === "achievements") return game.achievement_pct !== null;
   return true;
 }
 
@@ -208,11 +212,15 @@ export interface IgdbGame {
  * Advice only - the form prints it and does nothing else. See docs/adr/0002 for
  * why Platinum, Abandoned and Playing are silent under every condition, and why
  * Backlog is judged on playtime alone.
+ *
+ * A game with no achievements passes null and is silent too, which needs no
+ * branch of its own: null is never 100. That is ADR 0002's achievement-less
+ * carve-out finally saying itself in the data rather than in prose.
  */
 export function statusHint(
   status: Status,
   playtimeMinutes: number,
-  achievementPct: number,
+  achievementPct: number | null,
 ): string | null {
   if (status === "backlog" && playtimeMinutes > 0) {
     return "You've played this — Attempted?";

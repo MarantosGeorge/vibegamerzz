@@ -143,7 +143,7 @@ export default function App() {
         case "playtime":
           return flip * (b.playtime_minutes - a.playtime_minutes) || byTitle(a, b);
         case "achievements":
-          return flip * (b.achievement_pct - a.achievement_pct) || byTitle(a, b);
+          return flip * ((b.achievement_pct ?? 0) - (a.achievement_pct ?? 0)) || byTitle(a, b);
         case "added":
         default:
           // `id` continues the same ordering at finer resolution for games

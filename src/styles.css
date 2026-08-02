@@ -629,6 +629,13 @@ select {
   font-size: 12.5px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  /* Whichever of the two comes first takes the slack, so the stats row lines up
+     across the grid whether or not the game has a bar above it. */
+  margin-top: auto;
+}
+
+.progress + .card-stats {
+  margin-top: 0;
 }
 
 .card-actions {
@@ -929,6 +936,34 @@ select {
      suffix like "/ 100" wraps under the field. */
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* A fact about the game rather than a number about it, so it reads as a
+   sentence and sits under the field it switches off. */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* `.field input` sizes text boxes - full width with a 10px inset - which would
+   inflate a checkbox into a square the size of the input beside it. */
+.check input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Switched off rather than broken: dimmed, but never the red of a validation
+   error, and the number stays legible so you can see what you would get back. */
+.field input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .playtime-inputs {
