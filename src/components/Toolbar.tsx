@@ -1,12 +1,14 @@
 import {
   CRITIC_BANDS,
   CRITIC_BAND_LABELS,
+  SORT_DIRECTION_LABELS,
   SORT_KEYS,
   SORT_LABELS,
   STATUSES,
   STATUS_LABELS,
+  isAscending,
 } from "../types";
-import type { CriticBand, SortKey, Status } from "../types";
+import type { CriticBand, SortDirection, SortKey, Status } from "../types";
 
 export interface Filters {
   search: string;
@@ -15,6 +17,8 @@ export interface Filters {
   genre: string | "all";
   critic: CriticBand;
   sort: SortKey;
+  /** Sticky: it survives a change of `sort` rather than resetting. */
+  direction: SortDirection;
 }
 
 interface ToolbarProps {
@@ -38,6 +42,7 @@ export function Toolbar({
   total,
 }: ToolbarProps) {
   const update = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+  const directionLabel = SORT_DIRECTION_LABELS[filters.sort][filters.direction];
 
   return (
     <div className="toolbar">
@@ -101,19 +106,40 @@ export function Toolbar({
           </select>
         </label>
 
-        <label className="select-field">
+        <div className="select-field sort-field">
           <span>Sort by</span>
-          <select
-            value={filters.sort}
-            onChange={(event) => update({ sort: event.target.value as SortKey })}
-          >
-            {SORT_KEYS.map((key) => (
-              <option key={key} value={key}>
-                {SORT_LABELS[key]}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div className="sort-controls">
+            <select
+              aria-label="Sort by"
+              value={filters.sort}
+              onChange={(event) => update({ sort: event.target.value as SortKey })}
+            >
+              {SORT_KEYS.map((key) => (
+                <option key={key} value={key}>
+                  {SORT_LABELS[key]}
+                </option>
+              ))}
+            </select>
+            {/* Wears the ordering you are currently looking at, not the one a
+                click would give you - the arrow carries the "this flips". */}
+            <button
+              type="button"
+              className="sort-direction"
+              aria-label={`Order: ${directionLabel}. Activate to reverse.`}
+              title="Reverse the order"
+              onClick={() =>
+                update({ direction: filters.direction === "natural" ? "reversed" : "natural" })
+              }
+            >
+              <span className="sort-arrow" aria-hidden="true">
+                {isAscending(filters.sort, filters.direction) ? "↑" : "↓"}
+              </span>
+              <span className="sort-direction-text" aria-hidden="true">
+                {directionLabel}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="chip-row" role="group" aria-label="Filter by status">

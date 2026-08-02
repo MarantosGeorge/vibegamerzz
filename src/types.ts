@@ -117,8 +117,12 @@ export function matchesCriticBand(critic: number | null, band: CriticBand): bool
   return critic !== null && critic >= Number(band);
 }
 
+/**
+ * What the library is ordered by. Every key is a plain noun - which way round
+ * it runs is the other axis, `SortDirection`. See docs/adr/0003.
+ */
 export const SORT_KEYS = [
-  "recent",
+  "added",
   "title",
   "rating",
   "critic",
@@ -127,14 +131,65 @@ export const SORT_KEYS = [
 ] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
+/**
+ * Which way round a sort runs, read relative to its key rather than as a raw
+ * ascending/descending flag: `natural` is A–Z for Title and highest-first for
+ * every score, so it is the app's original behaviour on all six keys.
+ */
+export const SORT_DIRECTIONS = ["natural", "reversed"] as const;
+export type SortDirection = (typeof SORT_DIRECTIONS)[number];
+
+/** The neutral noun each key goes by in the dropdown. */
 export const SORT_LABELS: Record<SortKey, string> = {
-  recent: "Recently added",
-  title: "Title (A–Z)",
-  rating: "Highest rated",
-  critic: "Highest critic score",
-  playtime: "Most played",
-  achievements: "Most achievements",
+  added: "Date added",
+  title: "Title",
+  rating: "Your rating",
+  critic: "Critic score",
+  playtime: "Playtime",
+  achievements: "Completion",
 };
+
+/**
+ * How each key reads in each direction. These are the words the direction
+ * toggle wears, and the reason direction is not labelled with bare arrows:
+ * "ascending playtime" means nothing, "Least played" does.
+ */
+export const SORT_DIRECTION_LABELS: Record<SortKey, Record<SortDirection, string>> = {
+  added: { natural: "Newest first", reversed: "Oldest first" },
+  title: { natural: "A–Z", reversed: "Z–A" },
+  rating: { natural: "Highest rated", reversed: "Lowest rated" },
+  critic: { natural: "Highest first", reversed: "Lowest first" },
+  playtime: { natural: "Most played", reversed: "Least played" },
+  achievements: { natural: "Most complete", reversed: "Least complete" },
+};
+
+/**
+ * Whether the list currently runs upward, for the toggle's arrow. Title is the
+ * only key whose natural order ascends - A–Z - while every score, duration and
+ * date reads highest-first, which is the whole reason direction is `natural` /
+ * `reversed` rather than `asc` / `desc`. The arrow still points the way the
+ * list actually runs, because on narrow screens it is all there is to go on.
+ */
+export function isAscending(key: SortKey, direction: SortDirection): boolean {
+  const naturalAscends = key === "title";
+  return direction === "natural" ? naturalAscends : !naturalAscends;
+}
+
+/**
+ * Whether a game carries a value for this key at all. The ones that don't sort
+ * last in both directions - no score is not a low score, and floating every
+ * unrated game to the top is not what "Lowest rated" is asking for.
+ *
+ * Only two keys can be absent: `critic_rating` is genuinely null when nobody
+ * has scored a game, and `rating` uses 0 to mean unrated. Playtime and
+ * completion are excluded on purpose - a 0 there is an honest zero, and belongs
+ * at the bottom of "Most played" like any other number.
+ */
+export function hasSortValue(game: Game, key: SortKey): boolean {
+  if (key === "critic") return game.critic_rating !== null;
+  if (key === "rating") return game.rating > 0;
+  return true;
+}
 
 /** A single search result from IGDB, already normalised by the Rust side. */
 export interface IgdbGame {

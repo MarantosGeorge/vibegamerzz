@@ -116,6 +116,17 @@ Once you have a few games, use the search box, the coloured status buttons and t
 storefront, genre, critic-score and sort dropdowns to find things. The genre dropdown only
 lists genres you actually have, so it can never come back empty-handed.
 
+**Sorting runs both ways.** Pick what to sort by — date added, title, your rating, critic score,
+playtime or completion — and use the button beside the dropdown to flip the order. It tells you
+which way you're looking at: **Most played** flips to **Least played**, **A–Z** to **Z–A**,
+**Newest first** to **Oldest first**. The flip sticks when you change what you're sorting by, so
+if you've reversed the order it stays reversed until you press it again.
+
+Games with nothing to sort on stay at the bottom either way. Sorting by critic score puts the
+games nobody has reviewed last whichever direction you choose, and sorting by your rating does
+the same for games you haven't rated — "no score" isn't a bad score, so **Lowest rated** shows
+you the games you actually disliked rather than every game you never got round to rating.
+
 > **Just want to look around first?** Open **⚙ Settings → Load sample library** to fill the app
 > with eight example games, and remove them again with one click when you're done.
 
@@ -468,8 +479,17 @@ malformed value degrades to "no genres" rather than taking the library down.
 **The two rating scales are kept apart.** `rating` is what *you* thought, 0–5. `critic_rating`
 is what reviewers thought, 0–100, and comes from IGDB's `aggregated_rating` — deliberately not
 its `rating` field, which is an IGDB *user* score and would quietly mean something else. It is
-nullable because most games genuinely have no critic aggregate, and "no score" sorts below a
-zero rather than tying with one.
+nullable because most games genuinely have no critic aggregate, and a game with no score is left
+out of the ordering entirely rather than treated as a low one. The sort dropdown says "Your
+rating" and "Critic score" for the same reason: two different numbers should not share a word
+where they sit side by side.
+
+**Sorting is a key plus a direction, and the direction is relative.** `sort` names what to order
+by; `direction` is `natural` or `reversed` rather than ascending or descending, because title's
+conventional order (A–Z) runs opposite to every other key's (highest, most, newest first). A
+literal ascending flag would hand you Z–A the first time you picked Title. Games with no value
+for the active key are partitioned out and appended, so they sit at the bottom in both
+directions. See `docs/adr/0003`.
 
 **Covers are copied in, never referenced.** Choosing a file copies it into the app's `covers`
 folder; picking an IGDB result downloads the artwork there. The database stores only a filename.

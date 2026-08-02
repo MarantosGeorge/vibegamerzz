@@ -13,7 +13,7 @@ import {
   initCovers,
 } from "./lib/api";
 import * as db from "./lib/db";
-import { matchesCriticBand, STATUSES } from "./types";
+import { hasSortValue, matchesCriticBand, STATUSES } from "./types";
 import type { Game, GameInput, Status } from "./types";
 
 const DEFAULT_FILTERS: Filters = {
@@ -22,7 +22,8 @@ const DEFAULT_FILTERS: Filters = {
   platform: "all",
   genre: "all",
   critic: "all",
-  sort: "recent",
+  sort: "added",
+  direction: "natural",
 };
 
 export default function App() {
@@ -113,26 +114,47 @@ export default function App() {
     const byTitle = (a: Game, b: Game) =>
       a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
 
-    // Every numeric sort is descending with a title tiebreak, so equal values
-    // stay in a predictable order instead of shuffling between renders.
-    return filtered.sort((a, b) => {
+    // Games with no value for the active key sit out the ordering entirely and
+    // land at the bottom whichever way round the list runs. Reversing is meant
+    // to surface your worst-reviewed games, not the ones nobody reviewed.
+    const valued: Game[] = [];
+    const unvalued: Game[] = [];
+    for (const game of filtered) {
+      (hasSortValue(game, filters.sort) ? valued : unvalued).push(game);
+    }
+
+    // Each case is written in its natural direction - A–Z for title,
+    // highest/most/newest first for the rest - and `flip` turns it round.
+    // It multiplies the primary comparison only: the title tiebreak stays A–Z
+    // in both directions, so reversing "Most played" doesn't also silently
+    // re-alphabetise every game tied on zero.
+    const flip = filters.direction === "reversed" ? -1 : 1;
+
+    valued.sort((a, b) => {
       switch (filters.sort) {
         case "title":
-          return byTitle(a, b);
+          return flip * byTitle(a, b);
         case "rating":
-          return b.rating - a.rating || byTitle(a, b);
-        // Unscored games sort below a zero, rather than tying with one.
+          return flip * (b.rating - a.rating) || byTitle(a, b);
+        // Nulls are already partitioned out, so the ?? never fires - it is
+        // here to satisfy the type, not to act as a sentinel.
         case "critic":
-          return (b.critic_rating ?? -1) - (a.critic_rating ?? -1) || byTitle(a, b);
+          return flip * ((b.critic_rating ?? 0) - (a.critic_rating ?? 0)) || byTitle(a, b);
         case "playtime":
-          return b.playtime_minutes - a.playtime_minutes || byTitle(a, b);
+          return flip * (b.playtime_minutes - a.playtime_minutes) || byTitle(a, b);
         case "achievements":
-          return b.achievement_pct - a.achievement_pct || byTitle(a, b);
-        case "recent":
+          return flip * (b.achievement_pct - a.achievement_pct) || byTitle(a, b);
+        case "added":
         default:
-          return b.created_at.localeCompare(a.created_at) || b.id - a.id;
+          // `id` continues the same ordering at finer resolution for games
+          // added in the same second rather than breaking a tie over it, so it
+          // reverses along with `created_at` instead of holding still.
+          return flip * (b.created_at.localeCompare(a.created_at) || b.id - a.id);
       }
     });
+
+    unvalued.sort(byTitle);
+    return [...valued, ...unvalued];
   }, [games, filters]);
 
   const filtersActive =
