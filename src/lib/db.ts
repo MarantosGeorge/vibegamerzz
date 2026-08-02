@@ -114,16 +114,6 @@ export async function deleteGame(id: number): Promise<void> {
   await handle.execute("DELETE FROM games WHERE id = $1", [id]);
 }
 
-/** Used by the card grid to jump a game between statuses without opening the form. */
-export async function setStatus(id: number, status: string): Promise<void> {
-  const handle = await db();
-  await handle.execute("UPDATE games SET status = $1, updated_at = $2 WHERE id = $3", [
-    status,
-    nowIso(),
-    id,
-  ]);
-}
-
 export async function listStorefronts(): Promise<string[]> {
   const handle = await db();
   const rows = await handle.select<{ name: string }[]>(

@@ -12,6 +12,10 @@ pub const DB_URL: &str = "sqlite:gamerzz.db";
 /// no separate `completed` flag, because two fields describing one fact drift
 /// apart. "Completed" is `status = 'completed'` everywhere.
 ///
+/// It also holds "Playing", which is activity rather than progress, so a game
+/// being played does not advertise how far through it is. That is deliberate
+/// too - see docs/adr/0001.
+///
 /// `platform` holds a PC storefront (Steam, GOG, ...), never console hardware.
 ///
 /// This is version 1 of the table, not its current shape - see
@@ -121,6 +125,66 @@ CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
 CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
 "#;
 
+/// Six statuses instead of four: `attempted` and `platinum` join the set.
+///
+/// Purely a widening - every value the old CHECK allowed is still allowed, and
+/// no row is touched. Games sitting in `playing` stay in `playing` even though
+/// that bucket used to carry everything in flight; re-filing them is the user's
+/// call, not the migration's. Same for `completed` games at 100% achievements,
+/// which are left for the user to promote to `platinum` if they want to - see
+/// docs/adr/0002, the app advises and never corrects.
+///
+/// SQLite cannot alter a CHECK constraint in place, so this is the same rebuild
+/// and copy-across as `RATINGS_AND_GENRES` above.
+const SIX_STATUSES: &str = r#"
+CREATE TABLE games_v3 (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            TEXT    NOT NULL,
+    platform         TEXT    NOT NULL DEFAULT 'Other',
+    status           TEXT    NOT NULL DEFAULT 'backlog'
+                     CHECK (status IN ('backlog','attempted','completed',
+                                       'platinum','abandoned','playing')),
+    achievement_pct  INTEGER NOT NULL DEFAULT 0
+                     CHECK (achievement_pct >= 0 AND achievement_pct <= 100),
+    playtime_minutes INTEGER NOT NULL DEFAULT 0
+                     CHECK (playtime_minutes >= 0),
+    rating           REAL    NOT NULL DEFAULT 0
+                     CHECK (rating >= 0 AND rating <= 5
+                            AND rating * 2 = CAST(rating * 2 AS INTEGER)),
+    critic_rating    INTEGER
+                     CHECK (critic_rating IS NULL
+                            OR (critic_rating >= 0 AND critic_rating <= 100)),
+    genres           TEXT,
+    cover_file       TEXT,
+    notes            TEXT,
+    igdb_id          INTEGER,
+    summary          TEXT,
+    release_date     TEXT,
+    is_sample        INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT    NOT NULL,
+    updated_at       TEXT    NOT NULL
+);
+
+INSERT INTO games_v3 (
+    id, title, platform, status, achievement_pct, playtime_minutes, rating,
+    critic_rating, genres, cover_file, notes, igdb_id, summary, release_date,
+    is_sample, created_at, updated_at
+)
+SELECT
+    id, title, platform, status, achievement_pct, playtime_minutes, rating,
+    critic_rating, genres, cover_file, notes, igdb_id, summary, release_date,
+    is_sample, created_at, updated_at
+FROM games;
+
+DROP TABLE games;
+ALTER TABLE games_v3 RENAME TO games;
+
+-- Dropping the table dropped its indexes with it.
+CREATE INDEX IF NOT EXISTS idx_games_status   ON games(status);
+CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
+CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
+"#;
+
 fn migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -133,6 +197,12 @@ fn migrations() -> Vec<Migration> {
             version: 2,
             description: "half-star ratings, critic score and genres",
             sql: RATINGS_AND_GENRES,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "six statuses: add attempted and platinum",
+            sql: SIX_STATUSES,
             kind: MigrationKind::Up,
         },
     ]

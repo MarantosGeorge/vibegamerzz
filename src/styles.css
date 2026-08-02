@@ -25,10 +25,15 @@
   --success: #22c55e;
   --warning: #f59e0b;
 
-  --status-backlog: #64748b;
-  --status-playing: #3b82f6;
-  --status-completed: #22c55e;
-  --status-abandoned: #f59e0b;
+  /* Six shelves, six colours, all of which have to survive being drawn as a
+     7px dot. Backlog is a deliberately dark slate so that Platinum's near-white
+     reads as a different colour rather than a brighter grey. */
+  --status-backlog: #475569;
+  --status-attempted: #3b82f6;
+  --status-completed: #eab308;
+  --status-platinum: #e2e8f0;
+  --status-abandoned: #dc2626;
+  --status-playing: #22c55e;
 
   --radius: 12px;
   --radius-sm: 8px;
@@ -341,9 +346,11 @@ select {
 /* Each status chip carries its colour as a dot, so the filter row and the
    card badges teach the same colour vocabulary. */
 .chip.status-backlog::before,
-.chip.status-playing::before,
+.chip.status-attempted::before,
 .chip.status-completed::before,
-.chip.status-abandoned::before {
+.chip.status-platinum::before,
+.chip.status-abandoned::before,
+.chip.status-playing::before {
   content: "";
   width: 7px;
   height: 7px;
@@ -353,14 +360,20 @@ select {
 .chip.status-backlog::before {
   background: var(--status-backlog);
 }
-.chip.status-playing::before {
-  background: var(--status-playing);
+.chip.status-attempted::before {
+  background: var(--status-attempted);
 }
 .chip.status-completed::before {
   background: var(--status-completed);
 }
+.chip.status-platinum::before {
+  background: var(--status-platinum);
+}
 .chip.status-abandoned::before {
   background: var(--status-abandoned);
+}
+.chip.status-playing::before {
+  background: var(--status-playing);
 }
 
 .chip-count {
@@ -441,18 +454,27 @@ select {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
+/* Gold and near-white are far too light to carry the white text the badge sets
+   by default, so those two flip to dark. The rest keep white. */
 .badge.status-backlog {
-  background: rgba(100, 116, 139, 0.92);
+  background: rgba(71, 85, 105, 0.92);
 }
-.badge.status-playing {
+.badge.status-attempted {
   background: rgba(59, 130, 246, 0.92);
 }
 .badge.status-completed {
-  background: rgba(34, 197, 94, 0.92);
+  background: rgba(234, 179, 8, 0.92);
+  color: #241c02;
+}
+.badge.status-platinum {
+  background: rgba(226, 232, 240, 0.92);
+  color: #0d1016;
 }
 .badge.status-abandoned {
-  background: rgba(245, 158, 11, 0.92);
-  color: #201704;
+  background: rgba(220, 38, 38, 0.92);
+}
+.badge.status-playing {
+  background: rgba(34, 197, 94, 0.92);
 }
 
 /* Critic score sits opposite the status badge, reading as a score chip. */
@@ -831,6 +853,13 @@ select {
 .field-error {
   font-size: 12.5px;
   color: #fca5a5;
+}
+
+/* Advice, not a problem - muted rather than alarming, and it never blocks a
+   save. See docs/adr/0002. */
+.field-hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
 }
 
 .suffix-input {

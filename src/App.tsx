@@ -227,7 +227,7 @@ export default function App() {
               ? "Loading your library…"
               : games.length === 0
                 ? "Your PC game library"
-                : `${games.length} game${games.length === 1 ? "" : "s"} · ${statusCounts.completed} completed`}
+                : `${games.length} game${games.length === 1 ? "" : "s"} · ${statusCounts.completed} completed · ${statusCounts.platinum} platinum`}
           </p>
         </div>
         <div className="header-actions">
