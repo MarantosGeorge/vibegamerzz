@@ -295,6 +295,60 @@ textarea {
   font-weight: 550;
 }
 
+/* Sort is a key plus a direction, so it needs two controls under one label -
+   and a little more width than a lone select to hold them both. */
+.sort-field {
+  flex: 0 1 320px;
+}
+
+.sort-controls {
+  display: flex;
+  min-width: 0;
+}
+
+/* The key and its direction are one control, so they share an edge rather than
+   sitting apart as two peers. The select keeps the 190px its neighbours get;
+   the toggle takes the extra width the basis above allows for. */
+.sort-controls select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.sort-direction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  /* Stretch to the select rather than repeating its padding. A select takes
+     its height from the UA's own form metrics - it doesn't inherit the body
+     font - so any padding chosen to match it here would be a guess that
+     drifts between platforms and leaves this field taller than the others. */
+  align-self: stretch;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sort-direction:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.sort-arrow {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 select,
 .field input,
 .field textarea {
@@ -1329,6 +1383,23 @@ input[type="number"] {
   .select-field select {
     font-size: 14px;
     padding: 10px 8px;
+  }
+
+  /* Sort keeps its half-width slot so the pairing above stays 2+2 - a
+     full-width row for it would put the grid below the fold, which is the
+     thing that pairing exists to prevent. The words don't fit in half a phone
+     screen next to a select, so the arrow carries it and the aria-label keeps
+     the full phrasing for screen readers. */
+  .sort-field {
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  .sort-direction-text {
+    display: none;
+  }
+
+  .sort-direction {
+    padding: 0 11px;
   }
 
   .modal-backdrop {

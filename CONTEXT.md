@@ -15,6 +15,19 @@ _Avoid_: Platform, launcher
 Which of six shelves a game sits on. Mutually exclusive, and always yours to choose.
 _Avoid_: State, progress, category, stage
 
+**Sort**:
+Two independent choices — a **key** and a **direction**.
+
+**Sort key**:
+What the library is ordered by: date added, title, your rating, critic score, playtime, completion. A key says nothing about which way round it runs.
+
+**Sort direction**:
+Which way round the key runs, read relative to that key: _natural_ is A–Z for title and highest-first for every score and date, _reversed_ is the other way. Direction persists when you change key, so reversing once reverses everything until you flip it back.
+_Avoid_: Ascending, descending — they don't survive contact with title, where the conventional direction is the opposite of every other key's.
+
+**Unrated / unscored**:
+A game carrying no value for the key in play — no critic score, or no rating from you. Not a low value: absence sits outside the ordering, and these games sit at the bottom of the library in both directions.
+
 ### The six statuses
 
 The six are independent shelves, not a ranking. Platinum is not a stronger Completed, and Completed is not a stronger Attempted — a game is on one shelf and that is all the app knows about it.
