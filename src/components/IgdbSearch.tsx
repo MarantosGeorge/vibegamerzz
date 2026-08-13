@@ -1,7 +1,36 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, igdbSearch } from "../lib/api";
 import { releaseYear } from "../lib/format";
 import type { IgdbGame } from "../types";
+
+/**
+ * How long a pause counts as "stopped typing". IGDB's ceiling is four requests
+ * a second, so this is the number that keeps the catalogue feeling like the
+ * library filter without walking into a 429: 300ms caps the worst plausible
+ * typing rhythm at about 3.3 requests a second.
+ */
+const DEBOUNCE_MS = 300;
+
+/**
+ * The library filter reacts to a single letter, and matching that exactly is
+ * tempting. It does not survive contact with the catalogue: IGDB's search is
+ * relevance-ranked with a limit of 24, so one letter returns 24 arbitrary PC
+ * games - worse than showing nothing at all.
+ */
+const MIN_CHARS = 2;
+
+/**
+ * Terms already searched this session, keyed on the trimmed lowercased term.
+ *
+ * Module-level on purpose. It has to outlive the component so that backspacing
+ * is instant, so that closing and reopening the panel starts warm, and so that
+ * moving between the Add Game and Add Wishlist forms - which share this
+ * component and therefore unmount it - does not throw the results away.
+ *
+ * Only successes land here. An empty result is a real answer and is cached; an
+ * error is not, or a single 429 would poison that term until the app restarts.
+ */
+const searchCache = new Map<string, IgdbGame[]>();
 
 /**
  * Where the app has already seen an IGDB id. Called out, never blocked - and
@@ -24,20 +53,100 @@ export function IgdbSearch({ onPick, known }: IgdbSearchProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function run() {
-    const query = term.trim();
-    if (!query) return;
+  /**
+   * Latest-wins guard. Searching on a debounce means several requests can be
+   * in flight at once, and they are not guaranteed to come back in order -
+   * typing "hunger" then " games" can land the first response second, leaving
+   * results for a query the box has already moved past. Genuine cancellation
+   * is not available: Tauri's `invoke` takes no AbortSignal, so the request
+   * finishes on the wire and we discard the answer instead.
+   */
+  const issued = useRef(0);
+
+  /** Held so Enter can cut the wait short rather than racing it. */
+  const timer = useRef<number | null>(null);
+
+  const search = useCallback(async (query: string) => {
+    const id = ++issued.current;
     setLoading(true);
     setError(null);
     try {
-      setResults(await igdbSearch(query));
+      const found = await igdbSearch(query);
+      if (id !== issued.current) return;
+      searchCache.set(query.toLowerCase(), found);
+      setResults(found);
     } catch (cause) {
+      if (id !== issued.current) return;
+      // Results are deliberately left alone: the rows on screen are still
+      // valid picks, and typing again retries on its own, so most failures
+      // clear themselves before they have been read.
       setError(errorMessage(cause));
-      setResults(null);
     } finally {
-      setLoading(false);
+      if (id === issued.current) setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const query = term.trim();
+
+    if (query.length < MIN_CHARS) {
+      issued.current++;
+      setLoading(false);
+      setResults(null);
+      setError(null);
+      return;
+    }
+
+    const cached = searchCache.get(query.toLowerCase());
+    if (cached) {
+      // No debounce and no loading state: this is not a network call, so it
+      // should not look like one.
+      issued.current++;
+      setLoading(false);
+      setResults(cached);
+      setError(null);
+      return;
+    }
+
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      void search(query);
+    }, DEBOUNCE_MS);
+    return () => {
+      if (timer.current !== null) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [term, search]);
+
+  /**
+   * Enter means "don't make me wait out the pause". Once the search has
+   * already run it doubles as a retry, and costs nothing when it is not one:
+   * a term that succeeded is in the cache and comes straight back, while a
+   * term that failed is not and gets a fresh attempt.
+   */
+  function searchNow() {
+    const query = term.trim();
+    if (query.length < MIN_CHARS) return;
+    if (timer.current !== null) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    const cached = searchCache.get(query.toLowerCase());
+    if (cached) {
+      issued.current++;
+      setLoading(false);
+      setResults(cached);
+      setError(null);
+      return;
+    }
+    void search(query);
   }
+
+  // Only ever true with rows on screen to dim, so the list never blanks
+  // mid-typing. With nothing to keep, the skeletons below stand in instead.
+  const stale = loading && !!results?.length;
 
   return (
     <section className="igdb">
@@ -49,26 +158,19 @@ export function IgdbSearch({ onPick, known }: IgdbSearchProps) {
           aria-label="Search IGDB"
           onChange={(event) => setTerm(event.target.value)}
           onKeyDown={(event) => {
-            // The form's submit button is elsewhere; Enter here means "search".
+            // Load-bearing: this input sits inside the game form, so without
+            // preventDefault Enter submits a half-filled form.
             if (event.key === "Enter") {
               event.preventDefault();
-              void run();
+              searchNow();
             }
           }}
         />
-        <button
-          type="button"
-          className="button subtle"
-          onClick={() => void run()}
-          disabled={loading || !term.trim()}
-        >
-          {loading ? "Searching…" : "Search"}
-        </button>
       </div>
 
-      {error && <p className="field-error">{error}</p>}
+      {error && <p className="igdb-notice">{error}</p>}
 
-      {loading && (
+      {loading && !results?.length && (
         <ul className="igdb-results">
           {[0, 1, 2].map((n) => (
             <li key={n} className="igdb-result skeleton">
@@ -89,8 +191,8 @@ export function IgdbSearch({ onPick, known }: IgdbSearchProps) {
         </p>
       )}
 
-      {!loading && !!results?.length && (
-        <ul className="igdb-results">
+      {!!results?.length && (
+        <ul className={stale ? "igdb-results stale" : "igdb-results"}>
           {results.map((result) => {
             const year = releaseYear(result.release_date);
             // Both are possible at once: nothing stops you owning a game and
