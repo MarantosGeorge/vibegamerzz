@@ -39,6 +39,26 @@ export const SAMPLE_GAMES: SampleGame[] = [
     release_date: "2020-09-17",
   },
   {
+    // The demo's one Above and Beyond game, and it deliberately sits below
+    // 100%: the Nameless King is optional, no ending asks for him and no
+    // achievement counts him. That gap between the counter and the shelf is
+    // the whole reason the shelf exists. Read it next to Hades above, which is
+    // Platinum at 78% - two shelves teaching their difference side by side.
+    // See docs/adr/0007.
+    title: "Dark Souls III",
+    platform: "Steam",
+    status: "above-and-beyond",
+    achievement_pct: 87,
+    playtime_minutes: 5_280,
+    rating: 5,
+    critic_rating: 89,
+    genres: ["Role-playing (RPG)", "Adventure"],
+    notes: "Nameless King down. Every boss, required or not.",
+    summary:
+      "An action role-playing game set in a dying world, where the fires of an age are going out and the dead are walking.",
+    release_date: "2016-04-11",
+  },
+  {
     title: "Baldur's Gate 3",
     platform: "GOG",
     status: "attempted",

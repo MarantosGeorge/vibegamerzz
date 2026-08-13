@@ -317,9 +317,14 @@ export default function App() {
 
   /**
    * The header line, which describes the tab you are on and only that tab. Each
-   * leads with its own total and then the two figures worth knowing about it -
-   * for the library the shelves you finished on, for the wishlist the tier you
+   * leads with its own total and then the figures worth knowing about it - for
+   * the library the shelves you finished on, for the wishlist the tier you
    * would actually spend money on today.
+   *
+   * The library's three finishing shelves are printed as three separate
+   * numbers and are never summed. A reader who wants "how many did I finish?"
+   * has to add them up themselves, which is exactly the point: they are
+   * independent shelves, not rungs. See docs/adr/0001 and docs/adr/0007.
    */
   const summary = useMemo(() => {
     if (tab === "wishlist") {
@@ -329,7 +334,10 @@ export default function App() {
     }
     if (games.length === 0) return "Your PC game library";
     const n = games.length;
-    return `${n} game${n === 1 ? "" : "s"} · ${statusCounts.completed} completed · ${statusCounts.platinum} platinum`;
+    return (
+      `${n} game${n === 1 ? "" : "s"} · ${statusCounts.completed} completed · ` +
+      `${statusCounts.platinum} platinum · ${statusCounts["above-and-beyond"]} above and beyond`
+    );
   }, [tab, games.length, wishlist.length, statusCounts, priorityCounts]);
 
   async function handleSubmit(input: GameInput) {

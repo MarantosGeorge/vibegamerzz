@@ -294,6 +294,75 @@ CREATE INDEX IF NOT EXISTS idx_wishlist_priority ON wishlist(priority);
 CREATE INDEX IF NOT EXISTS idx_wishlist_created  ON wishlist(created_at);
 "#;
 
+/// A seventh shelf: `above-and-beyond`, for going past what a game measures.
+///
+/// Platinum means done by a measure the game itself keeps - its achievements,
+/// its own completion metric. Above and Beyond means done past that: the boss
+/// no ending requires, the collection nothing counts. Same field, because there
+/// is still exactly one fact here and one column holding it. See docs/adr/0007.
+///
+/// Purely a widening, like `SIX_STATUSES`: every value the old CHECK allowed is
+/// still allowed and no row is touched. Nothing is re-filed onto the new shelf,
+/// because nothing in this database could identify a game that belongs there -
+/// which is the whole point of the shelf. That is the user's call, as it was
+/// for the `playing` rows in v3 and the honest zeroes in v4.
+///
+/// The hyphen in `above-and-beyond` follows `must-have` in `wishlist` above.
+///
+/// SQLite cannot alter a CHECK constraint in place, so this is the same rebuild
+/// and copy-across as `RATINGS_AND_GENRES`, `SIX_STATUSES` and
+/// `COMPLETION_CAN_BE_ABSENT`.
+const ABOVE_AND_BEYOND: &str = r#"
+CREATE TABLE games_v5 (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            TEXT    NOT NULL,
+    platform         TEXT    NOT NULL DEFAULT 'Other',
+    status           TEXT    NOT NULL DEFAULT 'backlog'
+                     CHECK (status IN ('playing','abandoned','backlog',
+                                       'attempted','completed','platinum',
+                                       'above-and-beyond')),
+    achievement_pct  INTEGER
+                     CHECK (achievement_pct IS NULL
+                            OR (achievement_pct >= 0 AND achievement_pct <= 100)),
+    playtime_minutes INTEGER NOT NULL DEFAULT 0
+                     CHECK (playtime_minutes >= 0),
+    rating           REAL    NOT NULL DEFAULT 0
+                     CHECK (rating >= 0 AND rating <= 5
+                            AND rating * 2 = CAST(rating * 2 AS INTEGER)),
+    critic_rating    INTEGER
+                     CHECK (critic_rating IS NULL
+                            OR (critic_rating >= 0 AND critic_rating <= 100)),
+    genres           TEXT,
+    cover_file       TEXT,
+    notes            TEXT,
+    igdb_id          INTEGER,
+    summary          TEXT,
+    release_date     TEXT,
+    is_sample        INTEGER NOT NULL DEFAULT 0,
+    created_at       TEXT    NOT NULL,
+    updated_at       TEXT    NOT NULL
+);
+
+INSERT INTO games_v5 (
+    id, title, platform, status, achievement_pct, playtime_minutes, rating,
+    critic_rating, genres, cover_file, notes, igdb_id, summary, release_date,
+    is_sample, created_at, updated_at
+)
+SELECT
+    id, title, platform, status, achievement_pct, playtime_minutes, rating,
+    critic_rating, genres, cover_file, notes, igdb_id, summary, release_date,
+    is_sample, created_at, updated_at
+FROM games;
+
+DROP TABLE games;
+ALTER TABLE games_v5 RENAME TO games;
+
+-- Dropping the table dropped its indexes with it.
+CREATE INDEX IF NOT EXISTS idx_games_status   ON games(status);
+CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
+CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
+"#;
+
 fn migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -324,6 +393,12 @@ fn migrations() -> Vec<Migration> {
             version: 5,
             description: "wishlist: titles you want and do not own",
             sql: WISHLIST,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 6,
+            description: "a seventh shelf: above and beyond",
+            sql: ABOVE_AND_BEYOND,
             kind: MigrationKind::Up,
         },
     ]

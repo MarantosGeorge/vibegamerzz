@@ -79,7 +79,7 @@ sensible default you can come back to later.
 | --- | --- |
 | **Title** | The name of the game. Required. |
 | **Storefront** | Where you bought or downloaded it: Steam, Epic, GOG, and so on. Missing yours? Pick **+ Add storefront…** and type it in. |
-| **Status** | Which of six shelves the game sits on — see [Statuses](#statuses) below. |
+| **Status** | Which of seven shelves the game sits on — see [Statuses](#statuses) below. |
 | **Achievements completed** | A percentage from 0 to 100. Typed in by hand. Tick **This game has no achievements** if there are none to earn — plenty of Epic, GOG and itch.io titles have none, and Undertale has none on Steam either. That's a different thing from 0%, and the app keeps them apart. |
 | **Play time** | Hours and minutes. Typed in by hand. |
 | **Your rating** | 0 to 5 stars, in **halves**. Click the left half of a star for a half, the right half for a whole. Click the same spot again to clear it. You can also focus the stars and use the arrow keys. |
@@ -90,27 +90,38 @@ sensible default you can come back to later.
 
 ### Statuses
 
-Every game sits on exactly one of six shelves.
+Every game sits on exactly one of seven shelves.
 
 | Status | | What it means |
 | --- | --- | --- |
+| **Playing** | ⬤ green | On your desk right now. Says nothing about how far through you are. |
+| **Abandoned** | ⬤ red | Played, and you're not going back. The reason doesn't matter. |
 | **Backlog** | ⬤ grey | Bought and never touched. No playtime. |
 | **Attempted** | ⬤ blue | Played, the credits haven't rolled, and you mean to come back to it. |
 | **Completed** | ⬤ gold | The main credits have rolled — the story, plus whatever side content you picked up on the way. Where most people stop. |
-| **Platinum** | ⬤ white | You're completely done, by whatever measure fits the game: its achievements, its own completion metric, or your own standard. |
-| **Abandoned** | ⬤ red | Played, and you're not going back. The reason doesn't matter. |
-| **Playing** | ⬤ green | On your desk right now. Says nothing about how far through you are. |
+| **Platinum** | ⬤ white | You're done by a measure the game itself keeps: its achievements, or its own completion metric. |
+| **Above and Beyond** | ⬤ fuchsia | You're done past what the game measures — the optional boss no ending requires, the collection nothing tracks. Actual 100%. |
 
-These are six independent shelves, not a ranking. **Platinum doesn't count as Completed** — the
-header line counts them separately, on purpose.
+**Above and Beyond** is for the games where the credits and the achievement list both stop short
+of what you'd call finished. No ending in Dark Souls III needs the Nameless King, no achievement
+in Silksong needs Shakra, and Elden Ring rolls credits with Malenia alive — but plenty of people
+beat them anyway before calling the game done. Same for every weapon and armour set in The
+Witcher 3, or the optional challenges behind Control's outfits. None of it is counted anywhere,
+which is exactly why it gets a shelf.
+
+These are seven independent shelves, not a ranking. **Platinum doesn't count as Completed, and
+Above and Beyond doesn't count as Platinum** — the header line counts all three separately, on
+purpose. They're listed in the order the buttons appear: what you're doing right now first, then
+how far each game got.
 
 Two of them restate numbers the app already has, so when a status disagrees with the figures
 you've typed, a line of grey text appears under the dropdown: *"You've played this — Attempted?"*
 for a Backlog game with time on it, and *"100% achievements — Platinum?"* for an Attempted or
 Completed game at 100%. It's a suggestion and nothing more — it never blocks a save, and never
-changes the field for you. Platinum, Abandoned and Playing are always left alone: a Platinum at
-94% is your call, plenty of games have no achievements at all, and a game you're playing might
-have no hours yet or every achievement already.
+changes the field for you. Platinum, Above and Beyond, Abandoned and Playing are always left
+alone: a Platinum at 94% is your call, plenty of games have no achievements at all, and a game
+you're playing might have no hours yet or every achievement already. Nothing ever suggests Above
+and Beyond either — no percentage could know whether you beat the optional boss.
 
 Once you have a few games, use the search box, the coloured status buttons and the
 storefront, genre, critic-score and sort dropdowns to find things. The genre dropdown only
@@ -130,7 +141,7 @@ Sorting by completion treats games with no achievements the same way: **Least co
 you what you've barely started, not the games that have nothing to complete.
 
 > **Just want to look around first?** Open **⚙ Settings → Load sample library** to fill the app
-> with eight example games, and remove them again with one click when you're done.
+> with nine example games, and remove them again with one click when you're done.
 
 ### Turning on game search (IGDB)
 
@@ -447,7 +458,7 @@ gamerzz/
 │   │   ├── api.ts              The only place the frontend calls into Rust
 │   │   ├── db.ts               Every SQL statement in the app
 │   │   ├── format.ts           Playtime, dates, placeholder colours
-│   │   └── sampleData.ts       The eight demo games
+│   │   └── sampleData.ts       The nine demo games
 │   └── components/             One component per file
 └── src-tauri/                  Rust backend
     ├── src/lib.rs              App builder + database schema and migrations
@@ -466,6 +477,14 @@ always chosen by hand.
 **One source of truth for progress.** There is no `completed` boolean. "Completed" is
 `status = 'completed'`, derived wherever it's needed. Two fields describing one fact drift apart;
 one field can't.
+
+**Above and Beyond is a seventh status, not a flag on top of Platinum.** A boolean beside
+`status` would say "past Platinum" more literally, but it would also let the database hold
+`status = 'backlog'` alongside `above_and_beyond = 1` — the same drift the `completed` boolean
+above was refused for. Migration 6 widens the CHECK instead, rebuilding the table because SQLite
+cannot alter one in place. Nothing is backfilled, and nothing could be: the fact that puts a game
+on this shelf — that you beat a boss the game never asked you to — is not in the database. See
+`docs/adr/0007`.
 
 **Half stars are a REAL column, not a doubled integer.** Storing "sevenths of a star" as `7`
 would have avoided a migration, but every read and write would need to remember to halve or

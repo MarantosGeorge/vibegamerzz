@@ -18,7 +18,7 @@ _Avoid_: Wishlisted game, wanted game — "game" reads as the owned thing
 
 **Wishlist**:
 Every wishlist entry, taken together — and the tab that shows them. Never a shelf a Game can
-sit on, and never a seventh status.
+sit on, and never a status at all: a title you do not own has no shelf to be on.
 
 **Priority**:
 How much you want a wishlist entry, on three ordered tiers. Always set: putting something on
@@ -36,7 +36,7 @@ Where a game was bought — Steam, GOG, Epic. Never console hardware; this libra
 _Avoid_: Platform, launcher
 
 **Status**:
-Which of six shelves a game sits on. Mutually exclusive, and always yours to choose.
+Which of seven shelves a game sits on. Mutually exclusive, and always yours to choose.
 _Avoid_: State, progress, category, stage
 
 **Completion**:
@@ -56,9 +56,17 @@ _Avoid_: Ascending, descending — they don't survive contact with title, where 
 **Unrated / unscored**:
 A game carrying no value for the key in play — no critic score, no rating from you, or no achievements to earn. Not a low value: absence sits outside the ordering, and these games sit at the bottom of the library in both directions.
 
-### The six statuses
+### The seven statuses
 
-The six are independent shelves, not a ranking. Platinum is not a stronger Completed, and Completed is not a stronger Attempted — a game is on one shelf and that is all the app knows about it.
+The seven are independent shelves, not a ranking. Platinum is not a stronger Completed, Completed is not a stronger Attempted, and Above and Beyond is not a stronger Platinum — a game is on one shelf and that is all the app knows about it. Above and Beyond is the one whose _meaning_ is defined by reference to another shelf; its _counting_ is not, and it is never totalled with Platinum. They are listed here — and rendered in the app — in reading order: what is going on right now first, then how far a game got. That is a running order, not a scoreboard.
+
+**Playing**:
+On your desk right now. Says nothing about how far through the game you are — a game you are playing may have no playtime yet, or every achievement already.
+_Avoid_: Active, Current, In Progress
+
+**Abandoned**:
+Played, and you will not return to it. The reason does not matter.
+_Avoid_: Dropped, Retired, Shelved, Quit
 
 **Backlog**:
 Bought and never touched. No playtime.
@@ -73,22 +81,18 @@ The main credits have rolled — the story is finished, along with whatever side
 _Avoid_: Finished, Beaten, Done
 
 **Platinum**:
-Completely done with the game, by whatever measure fits it: its achievements, its own completion metric, or your own standard. The achievement counter is evidence of Platinum, never the definition — plenty of games have no achievements at all, and the library records that they have none rather than filing them at zero.
+Done by a measure the game itself keeps: its achievements, or its own completion metric. The achievement counter is evidence of Platinum, never the definition — plenty of games have no achievements at all, and the library records that they have none rather than filing them at zero. What the game does not count is not Platinum's business; that is Above and Beyond.
 _Avoid_: 100%, Mastered, Completionist
 
-**Abandoned**:
-Played, and you will not return to it. The reason does not matter.
-_Avoid_: Dropped, Retired, Shelved, Quit
-
-**Playing**:
-On your desk right now. Says nothing about how far through the game you are — a game you are playing may have no playtime yet, or every achievement already.
-_Avoid_: Active, Current, In Progress
+**Above and Beyond**:
+Done past what the game measures. The optional boss no ending requires — the Nameless King, Malenia, Shakra — the weapons and armour nothing tracks, the challenges that only pay out in an outfit. Where Platinum answers a bar the game drew, this answers one you drew, and the achievement counter can sit anywhere while you do it. Rare on purpose: it is the shelf for actual 100%, not for having enjoyed something thoroughly.
+_Avoid_: True 100%, Completionist, Beyond Platinum — the last one reads as a rung above Platinum, and the shelves are not a ladder
 
 ### The three priorities
 
-Unlike the six statuses, these three _are_ a ranking, and are meant to be — Must have outranks
+Unlike the seven statuses, these three _are_ a ranking, and are meant to be — Must have outranks
 Interested outranks Someday, and sorting the wishlist by priority is the whole point of having
-one. The six statuses are shelves; the three priorities are an order.
+one. The seven statuses are shelves; the three priorities are an order.
 
 **Must have**:
 You would buy it today at full price. The wishlist exists to keep this list short.
