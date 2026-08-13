@@ -32,6 +32,36 @@ export const STATUS_LABELS: Record<Status, string> = {
   "above-and-beyond": "Above and Beyond",
 };
 
+/**
+ * What each shelf means, in the app's own voice, for the `?` on the status
+ * chips. A second rendering of the seven definitions in `CONTEXT.md` - that
+ * file stays canonical, and if a definition moves there it moves here too.
+ *
+ * Two rules these lines hold to, both from the glossary. Nothing reads as a
+ * ranking: the seven are shelves, and Above and Beyond is described by what it
+ * measures rather than as a rung above Platinum. And Platinum carries the
+ * achievement-less carve-out, because a game that counts nothing can never
+ * reach 100% and is Platinum anyway. See docs/adr/0002.
+ *
+ * Where a shelf restates a number, the number is in the prose - "zero minutes
+ * played" is what actually separates Backlog from Attempted.
+ */
+export const STATUS_BLURBS: Record<Status, string> = {
+  playing:
+    "On your desk right now. Says nothing about how far in you are — could be your first hour, could be your last achievement.",
+  abandoned:
+    "You played it, and you're not going back. The reason doesn't matter and nobody's asking.",
+  backlog: "Bought it, never opened it. Zero minutes played. We've all got a shelf like this.",
+  attempted:
+    "You played it, credits never rolled, and you genuinely mean to go back. Genuinely.",
+  completed:
+    "The main credits rolled — story done, plus whatever side stuff you picked up along the way. Where most people stop.",
+  platinum:
+    "Done by the game's own yardstick: every achievement, or whatever else it counts. Some games count nothing at all — those can still be Platinum.",
+  "above-and-beyond":
+    "Done past what the game bothers to measure. Nobody made you fight the Nameless King. You did it anyway. Rare on purpose.",
+};
+
 /** A game as it comes back from SQLite. */
 export interface Game {
   id: number;
@@ -94,11 +124,17 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   someday: "Someday",
 };
 
-/** The section headings, which say what each tier means rather than repeat it. */
+/**
+ * The section headings, which say what each tier means rather than repeat it.
+ * Same voice as `STATUS_BLURBS` on purpose - the wishlist and the library
+ * should not sound like two different apps. These stay on screen rather than
+ * hiding behind a `?`: a description you cannot help reading beats one you
+ * have to know to hover for, which is why the priorities never grew a `?`.
+ */
 export const PRIORITY_BLURBS: Record<Priority, string> = {
-  "must-have": "You would buy these today at full price.",
-  interested: "You want these, and have not thought harder than that.",
-  someday: "You still want these, and have decided not to buy them for now.",
+  "must-have": "You'd buy these today, full price, no flinching.",
+  interested: "You want these. You haven't thought harder than that.",
+  someday: "You still want these — and you've decided, deliberately, that today is not the day.",
 };
 
 /**
