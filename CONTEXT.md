@@ -20,6 +20,11 @@ _Avoid_: Wishlisted game, wanted game — "game" reads as the owned thing
 Every wishlist entry, taken together — and the tab that shows them. Never a shelf a Game can
 sit on, and never a status at all: a title you do not own has no shelf to be on.
 
+**Library**:
+Every Game, taken together — and the tab that shows them. Bounded by what you own, not by what
+exists: a title you have not bought is outside the library whether or not you want it.
+_Avoid_: Collection, catalogue — the Catalogue is the thing the library is not
+
 **Priority**:
 How much you want a wishlist entry, on three ordered tiers. Always set: putting something on
 the wishlist is itself the claim that you want it, so unlike a rating or a critic score a
@@ -30,6 +35,26 @@ _Avoid_: Rating — that is your score for a game you have played, and you have 
 A wishlist entry whose release date has not arrived. Never stored and never chosen — it is read
 off the date, so an entry stops being unreleased on its own. It says why you do not own a game,
 never how much you want it: an unreleased game can sit on any of the three priorities.
+
+**Catalogue**:
+Every PC game that exists, owned or not. The one part of this app that is not yours: it is read
+and never kept, and nothing sits in it — a title is in your Library or on your Wishlist, never
+"in the catalogue" as a place. Searching it is how a title arrives without being typed by hand.
+_Avoid_: IGDB — that is the service the catalogue is read from, not the catalogue; database
+
+**Catalogue entry**:
+One title in the catalogue. Not a Game and not a Wishlist entry — picking one is the act that
+turns it into one or the other, and until then the app is only looking. It shares "not a Game"
+with a wishlist entry and nothing else: you did not create it, you will never own it, and it is
+never stored, so it is gone the moment you stop looking.
+_Avoid_: Result — it stops being one as soon as you are reading it; IGDB game
+
+**Search**:
+One verb, two scopes — you search your Library, and you search the Catalogue. The act is the
+same both times: type, and matches appear. All that differs is what is being searched, one
+thing you own and one thing you do not.
+_Avoid_: Filter — the library box is a search too, and naming only one of them filtering claims
+a difference in the act where the only difference is in the scope
 
 **Storefront**:
 Where a game was bought — Steam, GOG, Epic. Never console hardware; this library is PC-only.

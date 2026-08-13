@@ -1474,10 +1474,26 @@ input[type="number"] {
   color: var(--warning);
 }
 
+/* Results from the previous term, still on screen while the next ones load.
+   Dimmed rather than replaced so the list never blanks between keystrokes -
+   and left fully clickable, because they are still valid picks. */
+.igdb-results.stale {
+  opacity: 0.55;
+  transition: opacity 120ms ease-out;
+}
+
 .igdb-empty {
   margin-top: 12px;
   font-size: 13.5px;
   color: var(--text-muted);
+}
+
+/* A search that failed. Quieter than .field-error: typing retries on its own,
+   so most of these clear themselves before they have been read. */
+.igdb-notice {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--warning);
 }
 
 /* ---------- Settings ---------------------------------------------------- */
