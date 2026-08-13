@@ -391,6 +391,8 @@ select {
   align-items: center;
   gap: 7px;
   padding: 6px 13px;
+  /* Anchors the `?` to the corner and its tooltip to the chip. */
+  position: relative;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: transparent;
@@ -410,6 +412,87 @@ select {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--text);
+}
+
+/* A hovered chip paints over its neighbours, so its tooltip is never covered
+   by the chip sitting to the right of it. */
+.chip:hover {
+  z-index: 5;
+}
+
+/* The `?`: quiet by default, because seven of them share one row and none of
+   them is the point. It straddles the corner rather than sitting inside it -
+   the chip is a pill, so there is no square corner to sit in, and the text
+   already fills the padding. */
+.chip-help {
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.45;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.chip-help:hover {
+  opacity: 1;
+  color: var(--text);
+}
+
+/* Solid on purpose. The panel exists to be read, and cover art or chip labels
+   showing through two sentences of definition would defeat the whole feature -
+   the lightness comes from the border and the shadow instead.
+
+   Anchored to the chip's left edge rather than centred on the `?`: centring a
+   260px panel on the first chip in the row would hang it off the left of the
+   window, and the row always starts at the left.
+
+   `--tip-shift` pulls the panel back when the chip it hangs off is the last one
+   in a wrapped row, where a left-anchored 260px panel runs past the right edge
+   of the window and gives the whole app a horizontal scrollbar. Which chip that
+   is depends on where the row wrapped, so CSS cannot know it - Toolbar measures
+   on hover and sets the property. */
+.chip-tip {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 260px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 45%);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  transform: translateX(var(--tip-shift, 0px));
+  /* Faded rather than removed: `aria-describedby` points at this node, so it
+     has to stay in the accessibility tree whether or not it is on screen. */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+/* Short delay so sweeping the mouse along the row does not flash seven
+   panels on the way past the one you meant. */
+.chip-help:hover ~ .chip-tip {
+  opacity: 1;
+  transition-delay: 0.15s;
 }
 
 /* Each status chip carries its colour as a dot, so the filter row and the

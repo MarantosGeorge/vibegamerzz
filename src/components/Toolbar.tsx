@@ -5,10 +5,14 @@ import {
   SORT_KEYS,
   SORT_LABELS,
   STATUSES,
+  STATUS_BLURBS,
   STATUS_LABELS,
   isAscending,
 } from "../types";
 import type { CriticBand, SortDirection, SortKey, Status } from "../types";
+
+/** Breathing room left between a tooltip and the edge of the window. */
+const TIP_MARGIN = 12;
 
 export interface Filters {
   search: string;
@@ -43,6 +47,29 @@ export function Toolbar({
 }: ToolbarProps) {
   const update = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
   const directionLabel = SORT_DIRECTION_LABELS[filters.sort][filters.direction];
+
+  /**
+   * Keeps a tooltip inside the window. The panels hang off the left edge of
+   * their chip, which is safe until a chip lands last in a wrapped row - then
+   * the panel runs off the right of the window and the whole app gains a
+   * horizontal scrollbar. Which chip that is depends on where the row wrapped,
+   * so it cannot be expressed in CSS and has to be measured.
+   *
+   * Measured on enter rather than on mount or resize: the row rewraps on window
+   * resize, on font changes and whenever a status label changes width, and one
+   * read at hover time is correct under all of them.
+   */
+  const keepTipOnScreen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const tip = event.currentTarget.querySelector<HTMLElement>(".chip-tip");
+    if (!tip) return;
+    tip.style.setProperty("--tip-shift", "0px");
+    const rect = tip.getBoundingClientRect();
+    const overflow = rect.right - (document.documentElement.clientWidth - TIP_MARGIN);
+    if (overflow <= 0) return;
+    // Never pull it so far back that it falls off the left edge instead.
+    const shift = Math.min(overflow, Math.max(rect.left - TIP_MARGIN, 0));
+    tip.style.setProperty("--tip-shift", `${-shift}px`);
+  };
 
   return (
     <div className="toolbar">
@@ -150,14 +177,29 @@ export function Toolbar({
         >
           All <span className="chip-count">{total}</span>
         </button>
+        {/* The `?` is deliberately not a button. A button inside a button is
+            invalid markup, and making it interactive would carve a dead spot
+            out of the chip's own filter target. It is a hover region and
+            nothing more: clicking the glyph filters, like the rest of the chip.
+            Sighted users get the description on hover; everyone else gets it
+            through `aria-describedby`, which is why the tooltip carries the id
+            and only the glyph is hidden from the accessibility tree. */}
         {STATUSES.map((status) => (
           <button
             key={status}
             type="button"
             className={`chip status-${status}${filters.status === status ? " on" : ""}`}
             onClick={() => update({ status })}
+            onMouseEnter={keepTipOnScreen}
+            aria-describedby={`status-help-${status}`}
           >
             {STATUS_LABELS[status]} <span className="chip-count">{statusCounts[status]}</span>
+            <span className="chip-help" aria-hidden="true">
+              ?
+            </span>
+            <span className="chip-tip" id={`status-help-${status}`} role="tooltip">
+              {STATUS_BLURBS[status]}
+            </span>
           </button>
         ))}
       </div>
