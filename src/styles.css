@@ -25,13 +25,20 @@
   --success: #22c55e;
   --warning: #f59e0b;
 
-  /* Six shelves, six colours, all of which have to survive being drawn as a
+  /* Seven shelves, seven colours, all of which have to survive being drawn as a
      7px dot. Backlog is a deliberately dark slate so that Platinum's near-white
-     reads as a different colour rather than a brighter grey. */
+     reads as a different colour rather than a brighter grey.
+
+     Above and Beyond is fuchsia rather than the violet you would reach for
+     first: --accent below is already indigo-purple and paints the border of
+     whichever chip is selected, and --priority-interested is violet on the
+     wishlist. A dot 40 degrees along the wheel from both still reads as purple
+     and still reads as itself inside its own selection ring. */
   --status-backlog: #475569;
   --status-attempted: #3b82f6;
   --status-completed: #eab308;
   --status-platinum: #e2e8f0;
+  --status-above-and-beyond: #d946ef;
   --status-abandoned: #dc2626;
   --status-playing: #22c55e;
 
@@ -411,6 +418,7 @@ select {
 .chip.status-attempted::before,
 .chip.status-completed::before,
 .chip.status-platinum::before,
+.chip.status-above-and-beyond::before,
 .chip.status-abandoned::before,
 .chip.status-playing::before {
   content: "";
@@ -430,6 +438,9 @@ select {
 }
 .chip.status-platinum::before {
   background: var(--status-platinum);
+}
+.chip.status-above-and-beyond::before {
+  background: var(--status-above-and-beyond);
 }
 .chip.status-abandoned::before {
   background: var(--status-abandoned);
@@ -531,6 +542,9 @@ select {
 .badge.status-platinum {
   background: rgba(226, 232, 240, 0.92);
   color: #0d1016;
+}
+.badge.status-above-and-beyond {
+  background: rgba(217, 70, 239, 0.92);
 }
 .badge.status-abandoned {
   background: rgba(220, 38, 38, 0.92);

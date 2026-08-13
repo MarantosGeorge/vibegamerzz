@@ -61,7 +61,7 @@ export function SettingsDialog({
     }
   }
 
-  // Spelled out rather than summed. "14 samples" would be adding eight games to
+  // Spelled out rather than summed. "15 samples" would be adding nine games to
   // six wishlist entries, which are not the same kind of thing - the same
   // reason the app header never puts the two counts on one line.
   const total = sampleCounts.games + sampleCounts.wishlist;
@@ -190,7 +190,7 @@ export function SettingsDialog({
       <section className="settings-section">
         <h3>Sample data</h3>
         <p className="settings-help">
-          Adds eight example games and six wishlist entries, so you can see how both tabs look
+          Adds nine example games and six wishlist entries, so you can see how both tabs look
           with something in them. The wishlist entries cover all three priorities, because that
           is what the wishlist groups by — an empty one shows none of its shape. Everything is
           tagged as a sample and can be removed in one click.

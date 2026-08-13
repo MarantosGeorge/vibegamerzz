@@ -1,27 +1,35 @@
 /** Shared vocabulary for the whole app. Mirrors the `games` table exactly. */
 
 /**
- * The six shelves a game can sit on. Independent, not a ranking - Platinum is
- * not a stronger Completed. See docs/adr/0001. The order here is the order the
- * chips and the dropdown render in, and means nothing beyond that.
+ * The seven shelves a game can sit on. Independent, not a ranking - Platinum is
+ * not a stronger Completed, and Above and Beyond does not count as either. See
+ * docs/adr/0001 and docs/adr/0007. The order here is the order the chips and
+ * the dropdown render in, and means nothing beyond that.
+ *
+ * It reads: the two shelves that answer "what is going on right now" first,
+ * then the five that describe how far a game got, shortest journey to longest.
+ * That is a reading order and not a ranking - a game is on one shelf and the
+ * app knows nothing else about it.
  */
 export const STATUSES = [
+  "playing",
+  "abandoned",
   "backlog",
   "attempted",
   "completed",
   "platinum",
-  "abandoned",
-  "playing",
+  "above-and-beyond",
 ] as const;
 export type Status = (typeof STATUSES)[number];
 
 export const STATUS_LABELS: Record<Status, string> = {
+  playing: "Playing",
+  abandoned: "Abandoned",
   backlog: "Backlog",
   attempted: "Attempted",
   completed: "Completed",
   platinum: "Platinum",
-  abandoned: "Abandoned",
-  playing: "Playing",
+  "above-and-beyond": "Above and Beyond",
 };
 
 /** A game as it comes back from SQLite. */
@@ -341,6 +349,11 @@ export interface IgdbGame {
  * A game with no achievements passes null and is silent too, which needs no
  * branch of its own: null is never 100. That is ADR 0002's achievement-less
  * carve-out finally saying itself in the data rather than in prose.
+ *
+ * Above and Beyond is silent in both directions and needs no branch either.
+ * Nothing suggests it, because it is defined by content the game does not
+ * count, so no number stored here could imply it - and a game already sitting
+ * on it matches no condition below. See docs/adr/0007.
  */
 export function statusHint(
   status: Status,
