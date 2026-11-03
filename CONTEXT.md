@@ -81,6 +81,17 @@ _Avoid_: Ascending, descending — they don't survive contact with title, where 
 **Unrated / unscored**:
 A game carrying no value for the key in play — no critic score, no rating from you, or no achievements to earn. Not a low value: absence sits outside the ordering, and these games sit at the bottom of the library in both directions.
 
+**View**:
+Which of two layouts a collection is drawn in — cards or list. One choice, shared by the Library and the Wishlist, and the only setting in this app that outlives the window: a filter is set for one look at a collection, a view is how you like to read collections. It changes how a collection is drawn and never what is in it, which is the line it must not cross — the day a view hides a game is the day it has become a filter.
+_Avoid_: Mode, display
+
+**Card view**:
+Cover art first, one tile per title. What the app opens on, because art is the fastest way to recognise a game you already know, and recognising is what you are usually doing.
+
+**List view**:
+One row per title, in columns you read down — the directory listing a file manager gives you. It carries what a card carries minus the free text: genres and notes move to the title's tooltip, because a column of prose destroys the alignment the layout exists for. The columns are the point, and they are the thing cards cannot do — comparing forty games on playtime is a column, not a grid.
+_Avoid_: Detail view, compact view — it shows less than a card, not more, and is not a smaller one
+
 ### The seven statuses
 
 The seven are independent shelves, not a ranking. Platinum is not a stronger Completed, Completed is not a stronger Attempted, and Above and Beyond is not a stronger Platinum — a game is on one shelf and that is all the app knows about it. Above and Beyond is the one whose _meaning_ is defined by reference to another shelf; its _counting_ is not, and it is never totalled with Platinum. They are listed here — and rendered in the app — in reading order: what is going on right now first, then how far a game got. That is a running order, not a scoreboard.
