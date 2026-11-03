@@ -50,3 +50,18 @@ export function initialsFrom(title: string): string {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
+
+/**
+ * A stored `created_at` as a date. Those are full ISO timestamps rather than
+ * the bare `YYYY-MM-DD` a release date is, so `formatReleaseDate` cannot read
+ * them - and the time of day is never the point, so it is dropped.
+ */
+export function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

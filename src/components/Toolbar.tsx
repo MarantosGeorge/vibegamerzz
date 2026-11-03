@@ -10,6 +10,8 @@ import {
   isAscending,
 } from "../types";
 import type { CriticBand, SortDirection, SortKey, Status } from "../types";
+import type { ViewMode } from "../lib/view";
+import { ViewToggle } from "./ViewToggle";
 
 /** Breathing room left between a tooltip and the edge of the window. */
 const TIP_MARGIN = 12;
@@ -35,6 +37,10 @@ interface ToolbarProps {
   /** Counts per status across the whole library, not the filtered view. */
   statusCounts: Record<Status, number>;
   total: number;
+  /** Shared with the wishlist, which is why it is not held in `Filters`: it is
+      a standing preference about reading a collection, not a filter on one. */
+  view: ViewMode;
+  onViewChange: (view: ViewMode) => void;
 }
 
 export function Toolbar({
@@ -44,6 +50,8 @@ export function Toolbar({
   genres,
   statusCounts,
   total,
+  view,
+  onViewChange,
 }: ToolbarProps) {
   const update = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
   const directionLabel = SORT_DIRECTION_LABELS[filters.sort][filters.direction];
@@ -167,6 +175,10 @@ export function Toolbar({
             </button>
           </div>
         </div>
+
+        {/* Last in the row, and the only control in it that changes the shape
+            of the library rather than what is in it. */}
+        <ViewToggle view={view} onChange={onViewChange} />
       </div>
 
       <div className="chip-row" role="group" aria-label="Filter by status">

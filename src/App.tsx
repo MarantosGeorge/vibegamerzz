@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { EmptyState } from "./components/EmptyState";
 import { GameCard } from "./components/GameCard";
+import { GameTable } from "./components/GameTable";
 import { GameForm } from "./components/GameForm";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { Tabs, type Tab } from "./components/Tabs";
@@ -9,6 +10,7 @@ import { ToastStack, type ToastMessage } from "./components/Toast";
 import { Toolbar, type Filters } from "./components/Toolbar";
 import { WishlistCard } from "./components/WishlistCard";
 import { WishlistForm } from "./components/WishlistForm";
+import { WishlistTable } from "./components/WishlistTable";
 import { WishlistToolbar, type WishlistFilters } from "./components/WishlistToolbar";
 import {
   deleteCover,
@@ -17,6 +19,7 @@ import {
   initCovers,
 } from "./lib/api";
 import * as db from "./lib/db";
+import { readView, writeView, type ViewMode } from "./lib/view";
 import {
   hasSortValue,
   hasWishlistSortValue,
@@ -48,6 +51,7 @@ const DEFAULT_FILTERS: Filters = {
 const DEFAULT_WISHLIST_FILTERS: WishlistFilters = {
   search: "",
   genre: "all",
+  priority: "all",
   critic: "all",
   sort: "added",
   direction: "natural",
@@ -67,6 +71,10 @@ export default function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
 
   const [tab, setTab] = useState<Tab>("library");
+  // The one setting in this app that survives a restart, which is why it is not
+  // in either filter object: a filter is set for one look at a collection, a
+  // layout is how you like to read collections. Shared by both tabs.
+  const [view, setView] = useState<ViewMode>(readView);
   // One filter state per tab, held apart so switching tabs is never destructive
   // - a search you typed on one is still there when you come back. Neither
   // survives a restart, which is how the library has always behaved.
@@ -89,6 +97,11 @@ export default function App() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const changeView = useCallback((next: ViewMode) => {
+    setView(next);
+    writeView(next);
+  }, []);
 
   const notify = useCallback((text: string, tone: ToastMessage["tone"] = "success") => {
     setToasts((current) => [...current, { id: Date.now() + Math.random(), text, tone }]);
@@ -245,6 +258,9 @@ export default function App() {
   const wishSections = useMemo(() => {
     const term = wishFilters.search.trim().toLowerCase();
     const filtered = wishlist.filter((entry) => {
+      if (wishFilters.priority !== "all" && entry.priority !== wishFilters.priority) {
+        return false;
+      }
       if (wishFilters.genre !== "all" && !entry.genres.includes(wishFilters.genre)) {
         return false;
       }
@@ -310,10 +326,25 @@ export default function App() {
     filters.genre !== "all" ||
     filters.critic !== "all";
 
-  const wishFiltersActive =
+  /**
+   * The three filters that can hide a tier's contents from you, as opposed to
+   * the chip, which hides the other tiers because you asked it to. The
+   * difference decides which empty state an empty tier gets: "clear your
+   * filters" is good advice for the first and wrong for the second.
+   */
+  const wishOtherFiltersActive =
     wishFilters.search.trim() !== "" ||
     wishFilters.genre !== "all" ||
     wishFilters.critic !== "all";
+
+  const wishFiltersActive = wishOtherFiltersActive || wishFilters.priority !== "all";
+
+  /** The selected tier's entries, flat. Only one section can be non-empty when
+      a chip is on, so concatenating is the whole of it. */
+  const wishEntries = useMemo(
+    () => wishSections.flatMap((section) => section.entries),
+    [wishSections],
+  );
 
   /**
    * The header line, which describes the tab you are on and only that tab. Each
@@ -435,6 +466,42 @@ export default function App() {
     }
   }
 
+  /**
+   * The wishlist's body, in whichever layout is on. Written once rather than
+   * three times: the three stacked tiers and a single selected tier draw the
+   * same thing, and only the heading above them differs.
+   *
+   * `labelledBy` points a stacked table at its own tier's heading, so a screen
+   * reader moving between three tables is told which tier each one is.
+   */
+  const wishBody = (entries: WishlistEntry[], labelledBy?: string) =>
+    view === "list" ? (
+      <WishlistTable
+        entries={entries}
+        sort={wishFilters.sort}
+        direction={wishFilters.direction}
+        onSortChange={(sort, direction) =>
+          setWishFilters({ ...wishFilters, sort, direction })
+        }
+        onEdit={(target) => setWishFormFor({ entry: target })}
+        onBuy={(target) => setFormFor({ game: null, buying: target })}
+        onDelete={(target) => setRemoving(target)}
+        labelledBy={labelledBy}
+      />
+    ) : (
+      <div className="grid">
+        {entries.map((entry) => (
+          <WishlistCard
+            key={entry.id}
+            entry={entry}
+            onEdit={(target) => setWishFormFor({ entry: target })}
+            onBuy={(target) => setFormFor({ game: null, buying: target })}
+            onDelete={(target) => setRemoving(target)}
+          />
+        ))}
+      </div>
+    );
+
   if (fatalError) {
     return (
       <main className="app">
@@ -523,6 +590,8 @@ export default function App() {
               genres={genresInUse}
               statusCounts={statusCounts}
               total={games.length}
+              view={view}
+              onViewChange={changeView}
             />
           )}
 
@@ -549,16 +618,29 @@ export default function App() {
                   Showing {visible.length} of {games.length} games
                 </p>
               )}
-              <div className="grid">
-                {visible.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    onEdit={(target) => setFormFor({ game: target, buying: null })}
-                    onDelete={(target) => setDeleting(target)}
-                  />
-                ))}
-              </div>
+              {view === "list" ? (
+                <GameTable
+                  games={visible}
+                  sort={filters.sort}
+                  direction={filters.direction}
+                  onSortChange={(sort, direction) =>
+                    setFilters({ ...filters, sort, direction })
+                  }
+                  onEdit={(target) => setFormFor({ game: target, buying: null })}
+                  onDelete={(target) => setDeleting(target)}
+                />
+              ) : (
+                <div className="grid">
+                  {visible.map((game) => (
+                    <GameCard
+                      key={game.id}
+                      game={game}
+                      onEdit={(target) => setFormFor({ game: target, buying: null })}
+                      onDelete={(target) => setDeleting(target)}
+                    />
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -571,6 +653,10 @@ export default function App() {
               filters={wishFilters}
               onChange={setWishFilters}
               genres={wishGenresInUse}
+              priorityCounts={priorityCounts}
+              total={wishlist.length}
+              view={view}
+              onViewChange={changeView}
             />
           )}
 
@@ -582,12 +668,21 @@ export default function App() {
             />
           )}
 
-          {wishlist.length > 0 && wishVisibleCount === 0 && (
+          {/* Only when something is actually filtering the contents out. A tier
+              you picked and own nothing on falls through to "Nothing here."
+              below, where the chips and the blurb stay on screen - the big
+              empty state's "clear your filters" is the wrong advice for a chip
+              you deliberately clicked. */}
+          {wishlist.length > 0 && wishVisibleCount === 0 && wishOtherFiltersActive && (
             <EmptyState
               variant="wishlist-filter"
               onAdd={() => setWishFormFor({ entry: null })}
               onClearFilters={() => setWishFilters(DEFAULT_WISHLIST_FILTERS)}
             />
+          )}
+
+          {wishlist.length > 0 && wishVisibleCount === 0 && !wishOtherFiltersActive && (
+            <p className="wish-section-empty">Nothing here.</p>
           )}
 
           {wishVisibleCount > 0 && (
@@ -597,44 +692,45 @@ export default function App() {
                   Showing {wishVisibleCount} of {wishlist.length} entries
                 </p>
               )}
-              {/* Top to bottom in priority order, which is the ranking itself
-                  rather than a sort you happen to have chosen. A tier with
-                  nothing in it still shows its heading while unfiltered - an
-                  empty Must have is worth seeing. Under a filter it is dropped,
-                  because "nothing matched" is not the same statement. */}
-              {wishSections.map(({ priority, entries }) =>
-                entries.length === 0 && wishFiltersActive ? null : (
-                  <section key={priority} className="wish-section">
-                    <div className="wish-section-head">
-                      <h2>
-                        <span className={`priority-dot priority-${priority}`} aria-hidden="true" />
-                        {PRIORITY_LABELS[priority]}
-                        <span className="wish-section-count">
-                          {wishFiltersActive
-                            ? entries.length
-                            : priorityCounts[priority]}
-                        </span>
-                      </h2>
-                      <p>{PRIORITY_BLURBS[priority]}</p>
-                    </div>
-                    {entries.length === 0 ? (
-                      <p className="wish-section-empty">Nothing here.</p>
-                    ) : (
-                      <div className="grid">
-                        {entries.map((entry) => (
-                          <WishlistCard
-                            key={entry.id}
-                            entry={entry}
-                            onEdit={(target) => setWishFormFor({ entry: target })}
-                            onBuy={(target) => setFormFor({ game: null, buying: target })}
-                            onDelete={(target) => setRemoving(target)}
+              {/* With a tier selected there is no heading at all: the chip
+                  above already carries the name and the count, and the blurb
+                  sits under the chips. A heading here would say "Must have 3"
+                  directly below a chip reading "Must have 3". */}
+              {wishFilters.priority !== "all" && wishBody(wishEntries)}
+
+              {/* All three, top to bottom in priority order, which is the
+                  ranking itself rather than a sort you happen to have chosen. A
+                  tier with nothing in it still shows its heading while
+                  unfiltered - an empty Must have is worth seeing. Under a
+                  filter it is dropped, because "nothing matched" is not the
+                  same statement. */}
+              {wishFilters.priority === "all" &&
+                wishSections.map(({ priority, entries }) =>
+                  entries.length === 0 && wishFiltersActive ? null : (
+                    <section key={priority} className="wish-section">
+                      <div className="wish-section-head">
+                        <h2 id={`wish-tier-${priority}`}>
+                          <span
+                            className={`priority-dot priority-${priority}`}
+                            aria-hidden="true"
                           />
-                        ))}
+                          {PRIORITY_LABELS[priority]}
+                          <span className="wish-section-count">
+                            {wishFiltersActive
+                              ? entries.length
+                              : priorityCounts[priority]}
+                          </span>
+                        </h2>
+                        <p>{PRIORITY_BLURBS[priority]}</p>
                       </div>
-                    )}
-                  </section>
-                ),
-              )}
+                      {entries.length === 0 ? (
+                        <p className="wish-section-empty">Nothing here.</p>
+                      ) : (
+                        wishBody(entries, `wish-tier-${priority}`)
+                      )}
+                    </section>
+                  ),
+                )}
             </>
           )}
         </div>
