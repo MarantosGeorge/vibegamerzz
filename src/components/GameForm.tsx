@@ -8,6 +8,7 @@ import {
 } from "../lib/api";
 import { splitPlaytime } from "../lib/format";
 import { IGDB_GENRES, STATUSES, STATUS_LABELS, statusHint } from "../types";
+import { hasDlc, parentOptions } from "../lib/nesting";
 import type { Game, GameInput, IgdbGame, Status, WishlistEntry } from "../types";
 import { CoverImage } from "./CoverImage";
 import { IgdbSearch, type KnownIgdbIds } from "./IgdbSearch";
@@ -26,10 +27,22 @@ interface GameFormProps {
    * reason buying goes through this form at all. See docs/adr/0005.
    */
   buying?: WishlistEntry | null;
+  /** The whole library, for the "DLC for" dropdown. */
+  games: Game[];
+  /**
+   * The base game to file this under, when the form was opened by "Add DLC"
+   * from a game's panel rather than by the plain Add button.
+   */
+  parentId?: number | null;
   storefronts: string[];
   igdbEnabled: boolean;
   known: KnownIgdbIds;
-  onSubmit: (input: GameInput) => Promise<void>;
+  /**
+   * `dlcIds` is what IGDB listed under this title, passed along rather than
+   * saved: the form has no business creating other games, and the caller needs
+   * the new row's id before it can offer them. Empty for a hand-typed game.
+   */
+  onSubmit: (input: GameInput, dlcIds: number[]) => Promise<void>;
   onAddStorefront: (name: string) => Promise<void>;
   onClose: () => void;
 }
@@ -39,6 +52,8 @@ type Errors = Partial<Record<string, string>>;
 export function GameForm({
   game,
   buying = null,
+  games,
+  parentId = null,
   storefronts,
   igdbEnabled,
   known,
@@ -77,6 +92,11 @@ export function GameForm({
   const [releaseDate, setReleaseDate] = useState<string | null>(
     game?.release_date ?? buying?.release_date ?? null,
   );
+  // Buying carries the entry's parent across, so a wishlisted DLC stays filed
+  // under the same base game once you own it.
+  const [parent, setParent] = useState<number | null>(
+    game?.parent_id ?? buying?.parent_id ?? parentId,
+  );
 
   const [imageUrl, setImageUrl] = useState("");
   const [showUrlField, setShowUrlField] = useState(false);
@@ -110,6 +130,31 @@ export function GameForm({
     (Number(hours) || 0) * 60 + (Number(minutes) || 0),
     noAchievements ? null : Number(achievement) || 0,
   );
+
+  /**
+   * Where this game may be filed. Base games only, never itself - see
+   * `parentOptions`. A game that already has DLC cannot be filed anywhere,
+   * because it would take its children to a level that does not exist, so the
+   * dropdown is replaced by a line saying so rather than offering a choice
+   * that cannot be saved.
+   */
+  const parents = parentOptions(games, game?.id ?? null);
+  const isParent = hasDlc(games, game?.id ?? null);
+
+  /**
+   * What IGDB said this title is DLC for, if it said anything - set when a
+   * result is picked, never stored. Advisory in both directions, per
+   * docs/adr/0002: it offers the filing when you own the base game and
+   * explains itself when you do not, and it blocks nothing either way. Owning
+   * DLC without its base game is a real state - standalone expansions exist.
+   */
+  const [igdbParent, setIgdbParent] = useState<{ id: number; name: string } | null>(null);
+  /** The ids IGDB listed as this game's DLC. Handed to `onSubmit`, never stored. */
+  const [dlcIds, setDlcIds] = useState<number[]>([]);
+  const igdbParentOwned =
+    igdbParent === null
+      ? null
+      : (games.find((g) => g.igdb_id === igdbParent.id && !g.parent_id) ?? null);
 
   // The known vocabulary plus anything IGDB supplied that is not on it, so a
   // genre imported from IGDB can still be re-added after being removed.
@@ -183,6 +228,10 @@ export function GameForm({
     setReleaseDate(result.release_date);
     setCritic(result.critic_rating === null ? "" : String(result.critic_rating));
     setGenres(result.genres);
+    setIgdbParent(
+      result.parent ? { id: result.parent.igdb_id, name: result.parent.name } : null,
+    );
+    setDlcIds(result.dlc_ids);
     setShowIgdb(false);
     clearError("title");
     clearError("critic");
@@ -279,6 +328,11 @@ export function GameForm({
       igdb_id: igdbId,
       summary,
       release_date: releaseDate,
+      // A game with DLC of its own can never be filed under anything, whatever
+      // is sitting in state - the dropdown is not rendered in that case, and
+      // this is what makes that true of the saved row rather than only of the
+      // screen.
+      parent_id: isParent ? null : parent,
     };
   }
 
@@ -290,7 +344,7 @@ export function GameForm({
 
     setSaving(true);
     try {
-      await onSubmit(input);
+      await onSubmit(input, dlcIds);
       // Clean up: every cover written this session except the one being kept,
       // plus the previous cover if it has been replaced.
       const orphans = createdCovers.filter((file) => file !== coverFile);
@@ -501,6 +555,62 @@ export function GameForm({
                   ))}
                 </select>
                 {hint && <span className="field-hint">{hint}</span>}
+              </label>
+            </div>
+
+            {/* Its own row rather than a third column: the hint underneath is a
+                sentence, and a sentence in a half-width column wraps to four
+                lines and shoves the fields beside it out of alignment. */}
+            <div className="field-row field-row-single">
+              <label className="field">
+                <span className="field-label">DLC for</span>
+                {isParent ? (
+                  /* Not a disabled dropdown: a greyed-out control invites you
+                     to work out why. The sentence is the answer. */
+                  <p className="field-static">
+                    This game has DLC of its own, so it can't be filed under
+                    another game.
+                  </p>
+                ) : (
+                  <select
+                    value={parent === null ? "" : String(parent)}
+                    onChange={(event) =>
+                      setParent(event.target.value === "" ? null : Number(event.target.value))
+                    }
+                  >
+                    <option value="">None — this is a base game</option>
+                    {parents.map((base) => (
+                      <option key={base.id} value={base.id}>
+                        {base.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Both halves of hint (b). The offer when you own the base
+                    game, the explanation when you do not - and nothing is
+                    blocked either way. See docs/adr/0002 and docs/adr/0008. */}
+                {igdbParent && !isParent && parent === null && (
+                  <span className="field-hint">
+                    {igdbParentOwned ? (
+                      <>
+                        IGDB lists this as DLC for {igdbParentOwned.title}.{" "}
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => setParent(igdbParentOwned.id)}
+                        >
+                          File it under that?
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        IGDB lists this as DLC for {igdbParent.name}. Add that first if you
+                        own it — a DLC on its own can't track much.
+                      </>
+                    )}
+                  </span>
+                )}
               </label>
             </div>
 

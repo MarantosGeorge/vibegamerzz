@@ -10,6 +10,21 @@ One title in your library. Bought on exactly one storefront, and sitting on exac
 A title you have not bought is not a Game — it is a **Wishlist entry**, and buying it is the
 one event that turns it into a Game.
 
+**Base game**:
+A Game with nothing above it. Every Game is one unless it is DLC — this is not a
+second kind of thing to create, it is what a Game is by default, and a game stops being
+one only by being filed under another.
+
+**DLC**:
+A Game bought as an addition to a base game, and filed under it. Still a Game in every
+other respect: its own storefront, its own status, its own playtime, its own completion,
+its own rating. Being DLC _is_ having a base game above it, so there is no flag to set
+and no such thing as a DLC that has lost its parent — a game with nothing above it is
+simply a Game. One level deep, always: DLC never has DLC.
+_Avoid_: Folder, bundle, collection — nothing is a container here except the base game
+itself, and no folder is ever created; expansion, add-on — the app has one word for this
+and IGDB's three (`dlcs`, `expansions`, `standalone_expansions`) all arrive as it
+
 **Wishlist entry**:
 A title you want and do not own. It has no storefront, no status, no playtime and no
 completion, because all four are facts about owning something. What it does carry that a Game
@@ -83,13 +98,22 @@ A game carrying no value for the key in play — no critic score, no rating from
 
 **View**:
 Which of two layouts a collection is drawn in — cards or list. One choice, shared by the Library and the Wishlist, and the only setting in this app that outlives the window: a filter is set for one look at a collection, a view is how you like to read collections. It changes how a collection is drawn and never what is in it, which is the line it must not cross — the day a view hides a game is the day it has become a filter.
+
+DLC sitting behind its base game is not that line being crossed. What collapses a DLC out
+of the top level is the base game it names, not the view drawing it: both views nest, they
+nest identically, and there is no setting that turns nesting off. A view still never
+decides what you can see.
 _Avoid_: Mode, display
 
 **Card view**:
 Cover art first, one tile per title. What the app opens on, because art is the fastest way to recognise a game you already know, and recognising is what you are usually doing.
+A base game with DLC wears a folder badge on its cover, which opens them in a panel — a
+grid cannot indent, so this is the one place the two views do the same job differently.
 
 **List view**:
 One row per title, in columns you read down — the directory listing a file manager gives you. It carries what a card carries minus the free text: genres and notes move to the title's tooltip, because a column of prose destroys the alignment the layout exists for. The columns are the point, and they are the thing cards cannot do — comparing forty games on playtime is a column, not a grid.
+DLC nest here the way a file manager nests a folder: a disclosure triangle, child rows
+indented under the base game, every column still aligned.
 _Avoid_: Detail view, compact view — it shows less than a card, not more, and is not a smaller one
 
 ### The seven statuses

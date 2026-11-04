@@ -21,9 +21,68 @@ interface SampleGame {
   notes: string | null;
   summary: string | null;
   release_date: string | null;
+  /**
+   * The title of the base game this one is DLC for, resolved to its row id as
+   * the samples are inserted. A title rather than an id because these rows do
+   * not have ids until they are written - so a base game must appear earlier
+   * in this list than anything filed under it.
+   */
+  dlc_for?: string;
 }
 
 export const SAMPLE_GAMES: SampleGame[] = [
+  /**
+   * A base game with DLC filed under it, so the demo library shows the folder
+   * badge, the panel and the list tree without anyone having to build the case
+   * by hand. The three are deliberately on three different shelves: a DLC
+   * carries its own status, its own playtime and its own completion, and a row
+   * of identical ones would not say that.
+   */
+  {
+    title: "Alan Wake II",
+    platform: "Epic",
+    status: "completed",
+    achievement_pct: 72,
+    playtime_minutes: 2_480,
+    rating: 4.5,
+    critic_rating: 89,
+    genres: ["Adventure", "Shooter"],
+    notes: "The musical chapter is the best thing in any game this decade.",
+    summary:
+      "A survival horror sequel in which two heroes fight to escape a nightmare that writes itself.",
+    release_date: "2023-10-27",
+  },
+  {
+    title: "Alan Wake II: Night Springs",
+    platform: "Epic",
+    status: "platinum",
+    achievement_pct: 100,
+    playtime_minutes: 185,
+    rating: 4,
+    critic_rating: 78,
+    genres: ["Adventure"],
+    notes: null,
+    summary: "Three short episodes set in the anthology show of the same name.",
+    release_date: "2024-06-08",
+    dlc_for: "Alan Wake II",
+  },
+  {
+    // No achievements at all, which is the other thing worth demonstrating
+    // here: absence is not zero, and it sorts to the bottom either way round.
+    // See docs/adr/0004.
+    title: "Alan Wake II: The Lake House",
+    platform: "Epic",
+    status: "attempted",
+    achievement_pct: null,
+    playtime_minutes: 108,
+    rating: 0,
+    critic_rating: 80,
+    genres: ["Adventure", "Shooter"],
+    notes: "Got as far as the second floor and put it down.",
+    summary: "A separate expansion following an FBI agent into a research facility.",
+    release_date: "2024-10-22",
+    dlc_for: "Alan Wake II",
+  },
   {
     title: "Hades",
     platform: "Steam",

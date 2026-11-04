@@ -1,4 +1,6 @@
+import { Fragment } from "react";
 import { STATUS_LABELS, isAscending } from "../types";
+import type { GameNode } from "../lib/nesting";
 import type { Game, SortDirection, SortKey } from "../types";
 import { formatPlaytime, formatTimestamp } from "../lib/format";
 import { CoverImage } from "./CoverImage";
@@ -12,6 +14,16 @@ import { StarRating } from "./StarRating";
  * are free text of any length, and a column of it destroys the alignment the
  * table exists for - so the genres move into the title cell's tooltip, where
  * they cost nothing.
+ *
+ * DLC nest here the way a file manager nests a folder: a disclosure triangle in
+ * the title cell, child rows indented under it, columns still aligned so a
+ * DLC's playtime sits in the playtime column like everything else. This is the
+ * view where indenting is possible at all - a grid cannot do it, which is why
+ * cards use a panel instead. See docs/adr/0008.
+ *
+ * The same component draws that panel's contents, with nodes that have no
+ * children of their own. One row renderer, so a column added to the library is
+ * a column the panel gets for free.
  */
 
 /** The colour language review aggregators have already taught people. */
@@ -39,7 +51,11 @@ const COLUMNS: { key: SortKey | null; label: string; className: string }[] = [
 ];
 
 interface GameTableProps {
-  games: Game[];
+  /** Base games with their DLC. Inside the panel, nodes with empty `dlc`. */
+  nodes: GameNode[];
+  /** Which base games are open. Unused when no node has children. */
+  expanded?: Set<number>;
+  onToggle?: (id: number) => void;
   sort: SortKey;
   direction: SortDirection;
   /** Writes the toolbar's own sort state - see `onSort` below. */
@@ -49,7 +65,9 @@ interface GameTableProps {
 }
 
 export function GameTable({
-  games,
+  nodes,
+  expanded,
+  onToggle,
   sort,
   direction,
   onSortChange,
@@ -72,6 +90,123 @@ export function GameTable({
       onSortChange(key, direction);
     }
   };
+
+  /**
+   * One row, base game or DLC.
+   *
+   * Deliberately one function for both. The only differences are the
+   * disclosure triangle and the indent - every column is identical, and the
+   * day they stop being identical is the day a DLC has become a second-class
+   * game, which is exactly what docs/adr/0008 says it is not.
+   *
+   * A childless base game gets an invisible triangle rather than none at all,
+   * so its title still lines up with the titles that have one.
+   */
+  const row = (
+    game: Game,
+    opts: { dlcCount?: number; open?: boolean; onToggle?: () => void; child?: boolean },
+  ) => (
+    <tr key={game.id} className={opts.child ? "dlc-row" : undefined}>
+      <td className="col-title">
+        <div
+          className="row-title"
+          title={[game.title, game.genres.join(" · ")].filter(Boolean).join("\n")}
+        >
+          {!opts.child &&
+            (opts.dlcCount && opts.dlcCount > 0 ? (
+              <button
+                type="button"
+                className="twisty"
+                aria-expanded={opts.open}
+                aria-label={
+                  opts.open
+                    ? `Hide the ${opts.dlcCount} DLC in ${game.title}`
+                    : `Show the ${opts.dlcCount} DLC in ${game.title}`
+                }
+                onClick={opts.onToggle}
+              >
+                <span aria-hidden="true">{opts.open ? "▼" : "▶"}</span>
+              </button>
+            ) : (
+              <span className="twisty twisty-empty" aria-hidden="true" />
+            ))}
+          <span className="row-thumb">
+            <CoverImage title={game.title} coverFile={game.cover_file} />
+          </span>
+          <span className="row-title-text">{game.title}</span>
+        </div>
+      </td>
+
+      <td className="col-storefront">{game.platform}</td>
+
+      <td className="col-status">
+        <span className={`badge badge-inline status-${game.status}`}>
+          {STATUS_LABELS[game.status]}
+        </span>
+      </td>
+
+      <td className="col-rating">
+        <StarRating value={game.rating} size="sm" />
+      </td>
+
+      {/* The score keeps the colour it wears on a card, as text rather than as
+          a filled pill - a column of pills next to a column of status badges
+          is two loud things fighting. */}
+      <td className="col-critic">
+        {game.critic_rating === null ? (
+          <span className="cell-absent" title="Nobody has scored this game">
+            —
+          </span>
+        ) : (
+          <span className={`critic-num critic-${criticTone(game.critic_rating)}`}>
+            {game.critic_rating}
+          </span>
+        )}
+      </td>
+
+      <td className="col-playtime">{formatPlaytime(game.playtime_minutes)}</td>
+
+      {/* No bar here, unlike the card. In a column this narrow it is a sliver,
+          and sorting the column is the comparison the bar was standing in for.
+          Absence stays a dash: a 0% is the other fact entirely. */}
+      <td className="col-completion">
+        {game.achievement_pct === null ? (
+          <span className="cell-absent" title="This game has no achievements">
+            —
+          </span>
+        ) : (
+          <span>🏆 {game.achievement_pct}%</span>
+        )}
+      </td>
+
+      <td className="col-added">{formatTimestamp(game.created_at)}</td>
+
+      {/* Always visible, never hover-only: a control that appears on hover is
+          a control a touch or keyboard user cannot find. */}
+      <td className="col-actions">
+        <div className="row-actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={`Edit ${game.title}`}
+            title="Edit"
+            onClick={() => onEdit(game)}
+          >
+            <span aria-hidden="true">✎</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button danger"
+            aria-label={`Delete ${game.title}`}
+            title="Delete"
+            onClick={() => onDelete(game)}
+          >
+            <span aria-hidden="true">🗑</span>
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
 
   return (
     /* The scroller, not the table, so the sticky header scrolls sideways with
@@ -121,91 +256,19 @@ export function GameTable({
         </thead>
 
         <tbody>
-          {games.map((game) => (
-            <tr key={game.id}>
-              <td className="col-title">
-                <div
-                  className="row-title"
-                  title={[game.title, game.genres.join(" · ")].filter(Boolean).join("\n")}
-                >
-                  <span className="row-thumb">
-                    <CoverImage title={game.title} coverFile={game.cover_file} />
-                  </span>
-                  <span className="row-title-text">{game.title}</span>
-                </div>
-              </td>
-
-              <td className="col-storefront">{game.platform}</td>
-
-              <td className="col-status">
-                <span className={`badge badge-inline status-${game.status}`}>
-                  {STATUS_LABELS[game.status]}
-                </span>
-              </td>
-
-              <td className="col-rating">
-                <StarRating value={game.rating} size="sm" />
-              </td>
-
-              {/* The score keeps the colour it wears on a card, as text rather
-                  than as a filled pill - a column of pills next to a column of
-                  status badges is two loud things fighting. */}
-              <td className="col-critic">
-                {game.critic_rating === null ? (
-                  <span className="cell-absent" title="Nobody has scored this game">
-                    —
-                  </span>
-                ) : (
-                  <span className={`critic-num critic-${criticTone(game.critic_rating)}`}>
-                    {game.critic_rating}
-                  </span>
-                )}
-              </td>
-
-              <td className="col-playtime">{formatPlaytime(game.playtime_minutes)}</td>
-
-              {/* No bar here, unlike the card. In a column this narrow it is a
-                  sliver, and sorting the column is the comparison the bar was
-                  standing in for. Absence stays a dash: a 0% is the other fact
-                  entirely. */}
-              <td className="col-completion">
-                {game.achievement_pct === null ? (
-                  <span className="cell-absent" title="This game has no achievements">
-                    —
-                  </span>
-                ) : (
-                  <span>🏆 {game.achievement_pct}%</span>
-                )}
-              </td>
-
-              <td className="col-added">{formatTimestamp(game.created_at)}</td>
-
-              {/* Always visible, never hover-only: a control that appears on
-                  hover is a control a touch or keyboard user cannot find. */}
-              <td className="col-actions">
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label={`Edit ${game.title}`}
-                    title="Edit"
-                    onClick={() => onEdit(game)}
-                  >
-                    <span aria-hidden="true">✎</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button danger"
-                    aria-label={`Delete ${game.title}`}
-                    title="Delete"
-                    onClick={() => onDelete(game)}
-                  >
-                    <span aria-hidden="true">🗑</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {nodes.map((node) => {
+            const open = expanded?.has(node.game.id) ?? false;
+            return (
+              <Fragment key={node.game.id}>
+                {row(node.game, {
+                  dlcCount: node.dlc.length,
+                  open,
+                  onToggle: onToggle ? () => onToggle(node.game.id) : undefined,
+                })}
+                {open && node.dlc.map((child) => row(child, { child: true }))}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

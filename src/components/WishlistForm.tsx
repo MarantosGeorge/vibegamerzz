@@ -13,7 +13,8 @@ import {
   PRIORITY_BLURBS,
   PRIORITY_LABELS,
 } from "../types";
-import type { IgdbGame, Priority, WishlistEntry, WishlistInput } from "../types";
+import { parentOptions } from "../lib/nesting";
+import type { Game, IgdbGame, Priority, WishlistEntry, WishlistInput } from "../types";
 import { CoverImage } from "./CoverImage";
 import { IgdbSearch, type KnownIgdbIds } from "./IgdbSearch";
 import { Modal } from "./Modal";
@@ -22,6 +23,8 @@ const ADD_GENRE = "";
 
 interface WishlistFormProps {
   entry: WishlistEntry | null;
+  /** The library, for the "DLC for" dropdown - you file DLC under what you own. */
+  games: Game[];
   igdbEnabled: boolean;
   known: KnownIgdbIds;
   onSubmit: (input: WishlistInput) => Promise<void>;
@@ -44,6 +47,7 @@ type Errors = Partial<Record<string, string>>;
  */
 export function WishlistForm({
   entry,
+  games,
   igdbEnabled,
   known,
   onSubmit,
@@ -62,6 +66,17 @@ export function WishlistForm({
   const [igdbId, setIgdbId] = useState<number | null>(entry?.igdb_id ?? null);
   const [summary, setSummary] = useState<string | null>(entry?.summary ?? null);
   const [releaseDate, setReleaseDate] = useState<string | null>(entry?.release_date ?? null);
+  /**
+   * The Game this entry is DLC for. Always a game you own and never another
+   * wishlist entry: wanting a base game and its DLC at once is said by wanting
+   * the base game, and buying it is what then offers you the DLC.
+   *
+   * It nests nothing. The wishlist draws flat in its three priority sections
+   * and this is a label on the row - the Library is bounded by what you own,
+   * so an entry is never drawn inside it. See docs/adr/0008.
+   */
+  const [parent, setParent] = useState<number | null>(entry?.parent_id ?? null);
+  const [igdbParent, setIgdbParent] = useState<{ id: number; name: string } | null>(null);
 
   const [imageUrl, setImageUrl] = useState("");
   const [showUrlField, setShowUrlField] = useState(false);
@@ -145,6 +160,9 @@ export function WishlistForm({
     setReleaseDate(result.release_date);
     setCritic(result.critic_rating === null ? "" : String(result.critic_rating));
     setGenres(result.genres);
+    setIgdbParent(
+      result.parent ? { id: result.parent.igdb_id, name: result.parent.name } : null,
+    );
     setShowIgdb(false);
     clearError("title");
     clearError("critic");
@@ -193,6 +211,7 @@ export function WishlistForm({
       igdb_id: igdbId,
       summary,
       release_date: releaseDate,
+      parent_id: parent,
     };
   }
 
@@ -358,6 +377,48 @@ export function WishlistForm({
                   ))}
                 </select>
                 <span className="field-hint">{PRIORITY_BLURBS[priority]}</span>
+              </label>
+
+              <label className="field">
+                <span className="field-label">
+                  DLC for <em>optional</em>
+                </span>
+                <select
+                  value={parent === null ? "" : String(parent)}
+                  onChange={(event) =>
+                    setParent(event.target.value === "" ? null : Number(event.target.value))
+                  }
+                >
+                  <option value="">None — this is a base game</option>
+                  {parentOptions(games, null).map((base) => (
+                    <option key={base.id} value={base.id}>
+                      {base.title}
+                    </option>
+                  ))}
+                </select>
+                {igdbParent && parent === null && (
+                  <span className="field-hint">
+                    {(() => {
+                      const owned = games.find(
+                        (g) => g.igdb_id === igdbParent.id && !g.parent_id,
+                      );
+                      return owned ? (
+                        <>
+                          IGDB lists this as DLC for {owned.title}.{" "}
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => setParent(owned.id)}
+                          >
+                            File it under that?
+                          </button>
+                        </>
+                      ) : (
+                        <>IGDB lists this as DLC for {igdbParent.name}, which you don't own.</>
+                      );
+                    })()}
+                  </span>
+                )}
               </label>
 
               <label className="field">

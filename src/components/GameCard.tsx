@@ -6,6 +6,15 @@ import { StarRating } from "./StarRating";
 
 interface GameCardProps {
   game: Game;
+  /** How many DLC are filed under this game. Zero draws no badge at all. */
+  dlcCount?: number;
+  /**
+   * How many of those passed the active filter. Equal to `dlcCount` when
+   * nothing is filtering, which is what lets the badge print a bare count then
+   * and "1 of 3" only when the two differ and the difference means something.
+   */
+  dlcMatched?: number;
+  onOpenDlc?: (game: Game) => void;
   onEdit: (game: Game) => void;
   onDelete: (game: Game) => void;
 }
@@ -17,13 +26,42 @@ function criticTone(score: number): string {
   return "poor";
 }
 
-export function GameCard({ game, onEdit, onDelete }: GameCardProps) {
+export function GameCard({
+  game,
+  dlcCount = 0,
+  dlcMatched = 0,
+  onOpenDlc,
+  onEdit,
+  onDelete,
+}: GameCardProps) {
   const year = releaseYear(game.release_date);
+  // A grid cannot indent, so the badge is how a card says it has DLC - and
+  // under a filter it is also how the card says a DLC inside it matched. That
+  // second job is why this card can be on screen at all while failing the
+  // filter itself: it is the address of something that did match, and the
+  // badge is what stops it reading as a match of its own. See docs/adr/0008.
+  const partial = dlcMatched > 0 && dlcMatched < dlcCount;
 
   return (
     <article className="card">
       <div className="card-cover">
         <CoverImage title={game.title} coverFile={game.cover_file} />
+        {dlcCount > 0 && (
+          <button
+            type="button"
+            className={partial ? "dlc-badge dlc-badge-match" : "dlc-badge"}
+            onClick={() => onOpenDlc?.(game)}
+            aria-label={
+              partial
+                ? `${dlcMatched} of ${dlcCount} DLC match, open them`
+                : `Open the ${dlcCount} DLC filed under ${game.title}`
+            }
+            title={partial ? `${dlcMatched} of ${dlcCount} DLC match` : "DLC"}
+          >
+            <span aria-hidden="true">📁</span>
+            {partial ? `${dlcMatched} of ${dlcCount}` : dlcCount}
+          </button>
+        )}
         <span className={`badge status-${game.status}`}>{STATUS_LABELS[game.status]}</span>
         {game.critic_rating !== null && (
           <span

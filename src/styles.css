@@ -1153,6 +1153,40 @@ select {
   gap: 14px;
 }
 
+/* A row holding one field that needs the whole width - the "DLC for" picker,
+   whose hint is a sentence rather than a value. */
+.field-row-single {
+  grid-template-columns: 1fr;
+}
+
+/* A field whose answer is a sentence rather than a control: the "DLC for"
+   slot on a game that already has DLC. Deliberately not a disabled <select> -
+   a greyed-out control invites the user to work out why it is greyed out,
+   where a sentence just says. */
+.field-static {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 9px 0;
+}
+
+/* An offer inside a hint - "File it under that?". Reads as prose, acts as a
+   button, and never auto-applies: the user takes the suggestion or ignores
+   it. See docs/adr/0002. */
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent-hover);
+}
+
 .field textarea {
   resize: vertical;
   min-height: 76px;
@@ -2050,4 +2084,141 @@ input[type="number"] {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ---------- DLC -----------------------------------------------------------
+ *
+ * Nesting is structural: both views draw it and there is no flat option. What
+ * differs is only how, because a grid cannot indent and a table can. Cards get
+ * a badge that opens a panel; the list gets a disclosure triangle and indented
+ * rows. See docs/adr/0008.
+ */
+
+/* The folder button on a cover. Bottom-left is the one free corner - the
+   status badge owns the top-left and the critic score the top-right. */
+.dlc-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: rgba(13, 16, 22, 0.86);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.dlc-badge:hover {
+  background: rgba(13, 16, 22, 0.96);
+  border-color: var(--accent);
+}
+
+/* Under a filter, a base game can be on screen because a DLC inside it
+   matched rather than because it did. The accent is what says so - without it
+   the card reads as a match of its own, which would make the filter a liar. */
+.dlc-badge-match {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.dlc-panel-count {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* The table inside the panel scrolls on its own rather than growing the modal
+   past the window on a game with twenty DLC. */
+.dlc-panel .table-scroll {
+  max-height: min(58vh, 460px);
+  overflow-y: auto;
+}
+
+.dlc-offer-lede {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.dlc-offer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dlc-offer-row {
+  display: grid;
+  grid-template-columns: auto 44px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.dlc-offer-row:hover {
+  border-color: var(--border-strong);
+}
+
+.dlc-offer-row .igdb-thumb {
+  width: 44px;
+  height: 59px;
+  border-radius: 4px;
+}
+
+/* The disclosure triangle, list view. A childless row gets `twisty-empty`
+   rather than nothing at all, so its title still lines up with the ones that
+   have a triangle - a column of titles that shifts by 18px depending on
+   whether a game has DLC is the alignment this table exists for, lost. */
+.twisty {
+  flex: 0 0 auto;
+  width: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  /* The full-size glyphs (U+25BC / U+25B6), not the "small triangle" variants
+     at U+25BE / U+25B8 - those render as a speck at this size and read as a
+     stray dot rather than a control. */
+  font-size: 9px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.twisty:hover {
+  color: var(--text);
+}
+
+.twisty-empty {
+  cursor: default;
+}
+
+/* An indented child row, tied to its parent by a rail in the title cell. The
+   rail is on the cell rather than the row so it stops at the title column,
+   where the nesting actually means something, instead of underlining all
+   eight columns. */
+.data-table tbody tr.dlc-row {
+  background: rgba(124, 108, 245, 0.05);
+}
+
+.data-table tbody tr.dlc-row td.col-title {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.data-table tbody tr.dlc-row td.col-title .row-title {
+  padding-left: 26px;
 }

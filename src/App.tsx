@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { EmptyState } from "./components/EmptyState";
+import { DlcOffer } from "./components/DlcOffer";
+import { DlcPanel } from "./components/DlcPanel";
 import { GameCard } from "./components/GameCard";
 import { GameTable } from "./components/GameTable";
 import { GameForm } from "./components/GameForm";
@@ -19,6 +21,7 @@ import {
   initCovers,
 } from "./lib/api";
 import * as db from "./lib/db";
+import { nest, type GameNode } from "./lib/nesting";
 import { readView, writeView, type ViewMode } from "./lib/view";
 import {
   hasSortValue,
@@ -32,6 +35,7 @@ import {
 import type {
   Game,
   GameInput,
+  IgdbGame,
   Priority,
   Status,
   WishlistEntry,
@@ -56,6 +60,31 @@ const DEFAULT_WISHLIST_FILTERS: WishlistFilters = {
   sort: "added",
   direction: "natural",
 };
+
+/**
+ * What the delete confirmation says, given what is filed under the game.
+ *
+ * Deleting one tile can remove three games, so the dialog names the number
+ * before anything happens rather than letting the toast break the news
+ * afterwards. The wishlist half is the opposite promise - those entries are
+ * not being deleted - and it is worth saying for the same reason: a change in
+ * another tab that nobody mentioned is a change nobody can predict.
+ */
+function deleteMessage(game: Game, games: Game[], wishlist: WishlistEntry[]): string {
+  const dlc = games.filter((row) => row.parent_id === game.id).length;
+  const wished = wishlist.filter((row) => row.parent_id === game.id).length;
+
+  let message = `"${game.title}" will be removed from your library, along with its cover image.`;
+  if (dlc > 0) {
+    message += ` Its ${dlc} DLC ${dlc === 1 ? "goes" : "go"} with it.`;
+  }
+  if (wished > 0) {
+    message += ` ${wished} wishlisted DLC ${
+      wished === 1 ? "stays" : "stay"
+    } on your wishlist, no longer filed under anything.`;
+  }
+  return `${message} This cannot be undone.`;
+}
 
 export default function App() {
   const [games, setGames] = useState<Game[]>([]);
@@ -88,10 +117,22 @@ export default function App() {
   const [formFor, setFormFor] = useState<{
     game: Game | null;
     buying: WishlistEntry | null;
+    /** Pre-filled parent, when the form was opened by "Add DLC". */
+    parentId?: number | null;
   } | null>(null);
   const [wishFormFor, setWishFormFor] = useState<{ entry: WishlistEntry | null } | null>(
     null,
   );
+  /** The base game whose DLC panel is open, in card view. One at a time. */
+  const [dlcFor, setDlcFor] = useState<Game | null>(null);
+  /**
+   * Which base games are open in the list view. Session only, deliberately:
+   * `CONTEXT.md` says the view is the one setting that outlives the window,
+   * and an all-collapsed library on launch is the point of the feature.
+   */
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  /** The game just saved and the DLC ids IGDB listed for it - hint (a). */
+  const [offering, setOffering] = useState<{ parent: Game; ids: number[] } | null>(null);
   const [deleting, setDeleting] = useState<Game | null>(null);
   const [removing, setRemoving] = useState<WishlistEntry | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -111,7 +152,12 @@ export default function App() {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const refresh = useCallback(async () => {
+  /**
+   * Reload everything. Returns the games, because a caller that has just
+   * written one needs the saved row - with its real id - and re-reading the
+   * table it just refreshed would be a second trip for data already in hand.
+   */
+  const refresh = useCallback(async (): Promise<Game[]> => {
     const [rows, wishRows, fronts, samples] = await Promise.all([
       db.listGames(),
       db.listWishlist(),
@@ -122,6 +168,7 @@ export default function App() {
     setWishlist(wishRows);
     setStorefronts(fronts);
     setSampleCounts(samples);
+    return rows;
   }, []);
 
   useEffect(() => {
@@ -190,43 +237,69 @@ export default function App() {
     [wishlist],
   );
 
-  const visible = useMemo(() => {
+  const filtersActive =
+    filters.search.trim() !== "" ||
+    filters.status !== "all" ||
+    filters.platform !== "all" ||
+    filters.genre !== "all" ||
+    filters.critic !== "all";
+
+  /**
+   * The library, filtered and ordered, as base games with their DLC.
+   *
+   * Filtering still happens per game exactly as it always did - nesting
+   * changes which games are drawn together, never which ones match. What
+   * `nest` adds is that a base game is also drawn when one of its DLC matched,
+   * so a result is never stranded behind a cover with nothing to say it is
+   * there. That is the one case where a tile on screen fails the active
+   * filter, and the folder badge saying "1 of 3" is what stops it reading as a
+   * match of its own. See docs/adr/0008.
+   */
+  const visible = useMemo<GameNode[]>(() => {
     const term = filters.search.trim().toLowerCase();
-    const filtered = games.filter((game) => {
-      if (filters.status !== "all" && game.status !== filters.status) return false;
-      if (filters.platform !== "all" && game.platform !== filters.platform) return false;
-      if (filters.genre !== "all" && !game.genres.includes(filters.genre)) return false;
-      if (!matchesCriticBand(game.critic_rating, filters.critic)) return false;
-      if (term && !game.title.toLowerCase().includes(term)) return false;
-      return true;
-    });
+    const matchedIds = new Set<number>();
+    for (const game of games) {
+      if (filters.status !== "all" && game.status !== filters.status) continue;
+      if (filters.platform !== "all" && game.platform !== filters.platform) continue;
+      if (filters.genre !== "all" && !game.genres.includes(filters.genre)) continue;
+      if (!matchesCriticBand(game.critic_rating, filters.critic)) continue;
+      if (term && !game.title.toLowerCase().includes(term)) continue;
+      matchedIds.add(game.id);
+    }
 
     const byTitle = (a: Game, b: Game) =>
       a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
 
-    // Games with no value for the active key sit out the ordering entirely and
-    // land at the bottom whichever way round the list runs. Reversing is meant
-    // to surface your worst-reviewed games, not the ones nobody reviewed.
-    const valued: Game[] = [];
-    const unvalued: Game[] = [];
-    for (const game of filtered) {
-      (hasSortValue(game, filters.sort) ? valued : unvalued).push(game);
-    }
-
-    // Each case is written in its natural direction - A–Z for title,
+    // Each case is written in its natural direction - A-Z for title,
     // highest/most/newest first for the rest - and `flip` turns it round.
-    // It multiplies the primary comparison only: the title tiebreak stays A–Z
+    // It multiplies the primary comparison only: the title tiebreak stays A-Z
     // in both directions, so reversing "Most played" doesn't also silently
     // re-alphabetise every game tied on zero.
     const flip = filters.direction === "reversed" ? -1 : 1;
 
-    valued.sort((a, b) => {
+    /**
+     * One comparator, used at both levels, so the toolbar's key and direction
+     * mean the same thing inside a folder as outside it.
+     *
+     * Games with no value for the active key sit out the ordering entirely and
+     * land at the bottom whichever way round the list runs - reversing is
+     * meant to surface your worst-reviewed games, not the ones nobody
+     * reviewed. That used to be a partition into two arrays; as a leading
+     * comparison it says the same thing and can be handed to `nest`. See
+     * docs/adr/0004.
+     */
+    const compare = (a: Game, b: Game): number => {
+      const aHas = hasSortValue(a, filters.sort);
+      const bHas = hasSortValue(b, filters.sort);
+      if (aHas !== bHas) return aHas ? -1 : 1;
+      if (!aHas) return byTitle(a, b);
+
       switch (filters.sort) {
         case "title":
           return flip * byTitle(a, b);
         case "rating":
           return flip * (b.rating - a.rating) || byTitle(a, b);
-        // Nulls are already partitioned out, so the ?? never fires - it is
+        // Nulls are already sorted out above, so the ?? never fires - it is
         // here to satisfy the type, not to act as a sentinel.
         case "critic":
           return flip * ((b.critic_rating ?? 0) - (a.critic_rating ?? 0)) || byTitle(a, b);
@@ -241,11 +314,40 @@ export default function App() {
           // reverses along with `created_at` instead of holding still.
           return flip * (b.created_at.localeCompare(a.created_at) || b.id - a.id);
       }
-    });
+    };
 
-    unvalued.sort(byTitle);
-    return [...valued, ...unvalued];
+    return nest(games, matchedIds, compare);
   }, [games, filters]);
+
+  /** Games drawn right now, DLC included - what the result count counts. */
+  const visibleCount = useMemo(
+    () => visible.reduce((n, node) => n + 1 + node.dlc.length, 0),
+    [visible],
+  );
+
+  /**
+   * Which base games the list view draws open.
+   *
+   * Under a filter a match inside a folder opens it, so a result is never a
+   * click away from being seen - the card view cannot do this with a panel,
+   * which is why its badge carries the count instead. Otherwise it is whatever
+   * the user has opened this session.
+   */
+  const openRows = useMemo(() => {
+    if (!filtersActive) return expanded;
+    const open = new Set(expanded);
+    for (const node of visible) if (node.matched > 0) open.add(node.game.id);
+    return open;
+  }, [expanded, visible, filtersActive]);
+
+  const toggleRow = useCallback((id: number) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   /**
    * The wishlist, filtered, sorted and split into its three sections.
@@ -319,13 +421,6 @@ export default function App() {
     0,
   );
 
-  const filtersActive =
-    filters.search.trim() !== "" ||
-    filters.status !== "all" ||
-    filters.platform !== "all" ||
-    filters.genre !== "all" ||
-    filters.critic !== "all";
-
   /**
    * The three filters that can hide a tier's contents from you, as opposed to
    * the chip, which hides the other tiers because you asked it to. The
@@ -371,20 +466,31 @@ export default function App() {
     );
   }, [tab, games.length, wishlist.length, statusCounts, priorityCounts]);
 
-  async function handleSubmit(input: GameInput) {
+  async function handleSubmit(input: GameInput, dlcIds: number[] = []) {
     const editing = formFor?.game ?? null;
     const buying = formFor?.buying ?? null;
+    let newId: number | null = null;
     if (editing) {
       await db.updateGame(editing.id, input);
     } else if (buying) {
       // Writes the game, then drops the entry. Only on save - cancelling the
       // form leaves the entry exactly where it was. See docs/adr/0005.
-      await db.buyWishlistEntry(buying.id, input);
+      newId = await db.buyWishlistEntry(buying.id, input);
     } else {
-      await db.createGame(input);
+      newId = await db.createGame(input);
     }
-    await refresh();
+    const rows = await refresh();
     setFormFor(null);
+
+    /**
+     * Hint (a), and only for a base game: a DLC does not get asked about its
+     * own DLC, because depth is one. Nothing is added here - the offer opens
+     * with nothing ticked and closing it adds nothing. See docs/adr/0002.
+     */
+    if (newId !== null && dlcIds.length > 0 && input.parent_id === null) {
+      const saved = rows.find((row) => row.id === newId);
+      if (saved) setOffering({ parent: saved, ids: dlcIds });
+    }
     if (buying) {
       // The tab does not switch on its own. You said you bought one thing, not
       // that you were done with the wishlist.
@@ -424,19 +530,80 @@ export default function App() {
     }
   }
 
+  /**
+   * Create the DLC ticked in the offer, filed under the game just saved.
+   *
+   * The storefront is inherited from the parent, which is the only field here
+   * that is a guess - you bought the DLC where you bought the game, almost
+   * always, and the alternative is making the user answer it once per tick.
+   * Everything else comes from IGDB or starts where a new game starts: on
+   * Backlog, at zero minutes, unrated.
+   *
+   * Covers are not downloaded. Each one is a network round trip and a file on
+   * disk for a row that lives inside a panel behind a badge; the DLC's own
+   * edit form will fetch one the moment anyone wants it.
+   */
+  async function handleAddDlc(parent: Game, picks: IgdbGame[]) {
+    for (const pick of picks) {
+      await db.createGame({
+        title: pick.name,
+        platform: parent.platform,
+        status: "backlog",
+        achievement_pct: null,
+        playtime_minutes: 0,
+        rating: 0,
+        critic_rating: pick.critic_rating,
+        genres: pick.genres,
+        cover_file: null,
+        notes: null,
+        igdb_id: pick.igdb_id,
+        summary: pick.summary,
+        release_date: pick.release_date,
+        parent_id: parent.id,
+      });
+    }
+    await refresh();
+    setOffering(null);
+    notify(
+      picks.length === 1
+        ? `Added 1 DLC under ${parent.title}.`
+        : `Added ${picks.length} DLC under ${parent.title}.`,
+    );
+  }
+
   async function handleAddStorefront(name: string) {
     await db.addStorefront(name);
     setStorefronts(await db.listStorefronts());
   }
 
+  /**
+   * Delete a game and everything filed under it.
+   *
+   * The toast names what else went, because the confirm dialog promised it
+   * would: deleting one tile can remove three games, and a user who is told
+   * "Removed Alan Wake II" and then finds two more gone has been misled by
+   * omission. The wishlist half is said too - those entries survived, and a
+   * silent change to another tab is worse than a sentence.
+   */
   async function handleDelete() {
     if (!deleting) return;
     setDeleteBusy(true);
     try {
-      await db.deleteGame(deleting.id);
-      if (deleting.cover_file) await deleteCover(deleting.cover_file).catch(() => undefined);
+      const { dlc, wishlistFreed, covers } = await db.deleteGame(deleting.id);
+      await Promise.all(covers.map((file) => deleteCover(file).catch(() => undefined)));
       await refresh();
-      notify(`Removed ${deleting.title}.`);
+      // The panel may have been open on the game that just went.
+      setDlcFor(null);
+
+      const parts = [`Removed ${deleting.title}`];
+      if (dlc > 0) parts.push(`and its ${dlc} DLC`);
+      let line = `${parts.join(" ")}.`;
+      if (wishlistFreed > 0) {
+        line += ` ${wishlistFreed} wishlisted DLC ${
+          wishlistFreed === 1 ? "is" : "are"
+        } still on your wishlist.`;
+      }
+      notify(line);
       setDeleting(null);
     } catch (cause) {
       notify(errorMessage(cause), "error");
@@ -615,12 +782,14 @@ export default function App() {
             <>
               {filtersActive && (
                 <p className="result-count">
-                  Showing {visible.length} of {games.length} games
+                  Showing {visibleCount} of {games.length} games
                 </p>
               )}
               {view === "list" ? (
                 <GameTable
-                  games={visible}
+                  nodes={visible}
+                  expanded={openRows}
+                  onToggle={toggleRow}
                   sort={filters.sort}
                   direction={filters.direction}
                   onSortChange={(sort, direction) =>
@@ -631,10 +800,13 @@ export default function App() {
                 />
               ) : (
                 <div className="grid">
-                  {visible.map((game) => (
+                  {visible.map((node) => (
                     <GameCard
-                      key={game.id}
-                      game={game}
+                      key={node.game.id}
+                      game={node.game}
+                      dlcCount={node.dlc.length}
+                      dlcMatched={filtersActive ? node.matched : node.dlc.length}
+                      onOpenDlc={(target) => setDlcFor(target)}
                       onEdit={(target) => setFormFor({ game: target, buying: null })}
                       onDelete={(target) => setDeleting(target)}
                     />
@@ -741,6 +913,8 @@ export default function App() {
           key={formFor.game?.id ?? (formFor.buying ? `buy-${formFor.buying.id}` : "new")}
           game={formFor.game}
           buying={formFor.buying}
+          games={games}
+          parentId={formFor.parentId ?? null}
           storefronts={storefronts}
           igdbEnabled={igdbEnabled}
           known={knownIgdbIds}
@@ -754,6 +928,7 @@ export default function App() {
         <WishlistForm
           key={wishFormFor.entry?.id ?? "new"}
           entry={wishFormFor.entry}
+          games={games}
           igdbEnabled={igdbEnabled}
           known={knownIgdbIds}
           onSubmit={handleWishlistSubmit}
@@ -761,10 +936,34 @@ export default function App() {
         />
       )}
 
+      {dlcFor && (
+        <DlcPanel
+          parent={dlcFor}
+          dlc={games.filter((game) => game.parent_id === dlcFor.id)}
+          sort={filters.sort}
+          direction={filters.direction}
+          onSortChange={(sort, direction) => setFilters({ ...filters, sort, direction })}
+          onAdd={(parent) => setFormFor({ game: null, buying: null, parentId: parent.id })}
+          onEdit={(target) => setFormFor({ game: target, buying: null })}
+          onDelete={(target) => setDeleting(target)}
+          onClose={() => setDlcFor(null)}
+        />
+      )}
+
+      {offering && (
+        <DlcOffer
+          parent={offering.parent}
+          ids={offering.ids}
+          known={knownIgdbIds.library}
+          onAdd={(picks) => handleAddDlc(offering.parent, picks)}
+          onClose={() => setOffering(null)}
+        />
+      )}
+
       {deleting && (
         <ConfirmDialog
           title="Delete this game?"
-          message={`"${deleting.title}" will be removed from your library, along with its cover image. This cannot be undone.`}
+          message={deleteMessage(deleting, games, wishlist)}
           confirmLabel="Delete"
           busy={deleteBusy}
           onConfirm={() => void handleDelete()}

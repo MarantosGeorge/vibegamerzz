@@ -363,6 +363,43 @@ CREATE INDEX IF NOT EXISTS idx_games_platform ON games(platform);
 CREATE INDEX IF NOT EXISTS idx_games_created  ON games(created_at);
 "#;
 
+/// DLC: a game filed under the game it extends.
+///
+/// `parent_id` is the whole feature. A DLC is a Game in every respect - its own
+/// storefront, its own shelf, its own playtime, its own completion - that
+/// happens to name another Game as the thing it extends. Being DLC *is* having
+/// a parent; there is no `is_dlc` flag, so no row can ever be a DLC that has
+/// lost its parent, and the app never has grounds to object to a top-level
+/// game. See docs/adr/0008.
+///
+/// Two columns were considered and rejected. A separate `dlc` table would
+/// duplicate all fifteen columns of `games` to express one extra fact, and
+/// would make every filter and sort in the app choose which table it meant. A
+/// rolled-up `total_playtime` would make one number sometimes-stored and
+/// sometimes-derived; the base game's hours are the ones you typed.
+///
+/// The first migration here that does not rebuild the table: adding a nullable
+/// column needs no CHECK change, so `ALTER TABLE ADD COLUMN` is enough and
+/// every existing row keeps its id. That matters more than usual - the ids are
+/// what `parent_id` will come to point at.
+///
+/// `REFERENCES games(id)` is documentation. It is not load bearing: deleting a
+/// base game deletes its DLC and clears the parent on any wishlist entry that
+/// named it, and that second half reaches into another table, which no foreign
+/// key could do. `db.ts` owns it, in one transaction. Nothing here depends on
+/// `PRAGMA foreign_keys` being on for the pool.
+///
+/// Depth is capped at one by the application, not by SQL: SQLite cannot express
+/// "a row whose parent_id is not null may not be named as a parent" in a CHECK.
+const DLC_PARENT: &str = r#"
+ALTER TABLE games ADD COLUMN parent_id INTEGER REFERENCES games(id);
+
+ALTER TABLE wishlist ADD COLUMN parent_id INTEGER REFERENCES games(id);
+
+CREATE INDEX IF NOT EXISTS idx_games_parent    ON games(parent_id);
+CREATE INDEX IF NOT EXISTS idx_wishlist_parent ON wishlist(parent_id);
+"#;
+
 fn migrations() -> Vec<Migration> {
     vec![
         Migration {
@@ -401,6 +438,12 @@ fn migrations() -> Vec<Migration> {
             sql: ABOVE_AND_BEYOND,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "dlc: a game filed under the game it extends",
+            sql: DLC_PARENT,
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -425,6 +468,7 @@ pub fn run() {
             igdb::save_igdb_credentials,
             igdb::clear_igdb_credentials,
             igdb::igdb_search,
+            igdb::igdb_dlc,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
