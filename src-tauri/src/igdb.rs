@@ -200,6 +200,14 @@ struct RawGenre {
     name: Option<String>,
 }
 
+/// `parent_game`, expanded to its name in the same request. IGDB documents it
+/// as "if a DLC, expansion or part of a bundle, this is the main game".
+#[derive(Deserialize)]
+struct RawParent {
+    id: i64,
+    name: Option<String>,
+}
+
 #[derive(Deserialize)]
 struct RawGame {
     id: i64,
@@ -211,6 +219,26 @@ struct RawGame {
     /// IGDB's aggregate of external critic scores, 0-100. Note this is
     /// deliberately not IGDB's own `rating` field, which is a user score.
     aggregated_rating: Option<f64>,
+    parent_game: Option<RawParent>,
+    /// Both halves of what a person calls "DLC", because IGDB splits them and
+    /// the split does not match the word. Alan Wake II and Cyberpunk 2077 both
+    /// report `dlcs` empty and carry Night Springs, The Lake House and Phantom
+    /// Liberty under `expansions` - reading only `dlcs` would find nothing for
+    /// either of them.
+    ///
+    /// `standalone_expansions` is deliberately not here. Those are sold and
+    /// played without the base game, so they belong at the top level of a
+    /// library; anyone who wants one filed under its parent can say so with
+    /// the form's own dropdown.
+    dlcs: Option<Vec<i64>>,
+    expansions: Option<Vec<i64>>,
+}
+
+/// The base game a result is DLC for, as IGDB sees it.
+#[derive(Serialize)]
+pub struct IgdbParent {
+    pub igdb_id: i64,
+    pub name: String,
 }
 
 #[derive(Serialize)]
@@ -227,6 +255,12 @@ pub struct IgdbGame {
     pub cover_url: Option<String>,
     /// Small cover, shown in the results list.
     pub thumb_url: Option<String>,
+    /// What IGDB says this is DLC for, if anything. Advisory only - the app
+    /// offers the filing and never applies it. See docs/adr/0002.
+    pub parent: Option<IgdbParent>,
+    /// `dlcs` and `expansions` merged, de-duplicated, in IGDB's order. Looked
+    /// up by id after the base game is saved.
+    pub dlc_ids: Vec<i64>,
 }
 
 /// IGDB reports critic scores as a float like `92.3457`. Round to a whole
@@ -261,6 +295,51 @@ fn iso_date_from_unix(seconds: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}")
 }
 
+/// Every field the app reads off a game, in one place so the by-name search
+/// and the by-id lookup can never drift into returning different shapes.
+const GAME_FIELDS: &str = "name,summary,first_release_date,cover.image_id,genres.name,\
+aggregated_rating,parent_game.name,dlcs,expansions";
+
+/// The query for a search the user typed.
+///
+/// `platforms = (6)` is what keeps this a PC library: without it a search for
+/// "Halo" fills with console entries the user cannot buy on a storefront this
+/// app knows. `version_parent = null` drops the "Deluxe Edition"-style
+/// duplicates that otherwise crowd out the game being looked for.
+fn search_query(term: &str) -> String {
+    format!(
+        "search \"{term}\"; fields {GAME_FIELDS}; \
+         where platforms = ({PC_PLATFORM_ID}) & version_parent = null; \
+         limit 24;"
+    )
+}
+
+/// The query for games already identified by id - the `dlcs` and `expansions`
+/// of a game the user just added.
+///
+/// No platform filter, and that is the difference that matters. These ids came
+/// from a PC game the user picked, so the constraint is already satisfied by
+/// where they came from; applying it again only risks dropping DLC whose own
+/// `platforms` IGDB happens to leave empty. Filtering by name needs the guard,
+/// filtering by id buys nothing with it.
+///
+/// An empty id list would make `where id = ()`, which IGDB rejects, so the
+/// caller gets `None` and skips the request entirely.
+fn by_id_query(ids: &[i64]) -> Option<String> {
+    if ids.is_empty() {
+        return None;
+    }
+    let list = ids
+        .iter()
+        .map(|id| id.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    Some(format!(
+        "fields {GAME_FIELDS}; where id = ({list}); limit {};",
+        ids.len().min(50)
+    ))
+}
+
 /// IGDB's query language is a plain string, so the search term has to be
 /// escaped rather than parameterised.
 fn escape_search_term(query: &str) -> String {
@@ -273,7 +352,7 @@ fn escape_search_term(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{critic_score, escape_search_term, iso_date_from_unix};
+    use super::{by_id_query, critic_score, escape_search_term, iso_date_from_unix, search_query};
 
     #[test]
     fn rounds_critic_scores_and_rejects_impossible_ones() {
@@ -303,6 +382,29 @@ mod tests {
     }
 
     #[test]
+    fn looks_dlc_up_by_id_without_the_pc_platform_filter() {
+        // The ids come from a PC game the user already picked, so the platform
+        // constraint is satisfied by where they came from. Applying it again
+        // only drops DLC whose own `platforms` IGDB leaves empty, which is why
+        // this query must not carry it.
+        let body = by_id_query(&[1, 2, 3]).expect("three ids is a query");
+        assert!(body.contains("where id = (1,2,3);"));
+        assert!(!body.contains("platforms"));
+        assert!(body.contains("limit 3;"));
+        // The by-name search keeps the guard, and the two must not converge.
+        assert!(search_query("halo").contains("platforms = (6)"));
+
+        // `where id = ()` is a syntax error at IGDB, so no ids means no request.
+        assert!(by_id_query(&[]).is_none());
+
+        // Both queries ask for the same fields, so a field added for one is
+        // never missing from the other.
+        assert!(body.contains("parent_game.name"));
+        assert!(body.contains("dlcs,expansions"));
+        assert!(search_query("halo").contains("dlcs,expansions"));
+    }
+
+    #[test]
     fn strips_characters_that_would_break_the_igdb_query() {
         assert_eq!(escape_search_term("Zelda"), "Zelda");
         assert_eq!(
@@ -316,30 +418,61 @@ mod tests {
     }
 }
 
-#[tauri::command]
-pub async fn igdb_search(
-    app: AppHandle,
-    cache: State<'_, TokenCache>,
-    query: String,
-) -> Result<Vec<IgdbGame>, String> {
-    let term = escape_search_term(query.trim());
-    if term.is_empty() {
-        return Ok(Vec::new());
+/// `RawGame` to `IgdbGame`. One place, so a field added for the search shows
+/// up in the DLC lookup too.
+fn to_game(g: RawGame) -> IgdbGame {
+    let image_id = g.cover.and_then(|c| c.image_id);
+    // De-duplicated because a title can legitimately appear in both lists, and
+    // offering the same DLC twice in the picker would read as a bug.
+    let mut dlc_ids: Vec<i64> = Vec::new();
+    for id in g
+        .dlcs
+        .unwrap_or_default()
+        .into_iter()
+        .chain(g.expansions.unwrap_or_default())
+    {
+        if !dlc_ids.contains(&id) {
+            dlc_ids.push(id);
+        }
     }
 
-    let creds = read_credentials(&app)?
-        .ok_or_else(|| "IGDB is not set up yet. Add your credentials in Settings.".to_string())?;
-    let token = token_for(&creds, &cache).await?;
+    IgdbGame {
+        igdb_id: g.id,
+        name: g.name,
+        summary: g.summary,
+        release_date: g.first_release_date.map(iso_date_from_unix),
+        critic_rating: critic_score(g.aggregated_rating),
+        genres: g
+            .genres
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|genre| genre.name)
+            .collect(),
+        cover_url: image_id.as_ref().map(|id| {
+            format!("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{id}.jpg")
+        }),
+        thumb_url: image_id.as_ref().map(|id| {
+            format!("https://images.igdb.com/igdb/image/upload/t_cover_small/{id}.jpg")
+        }),
+        // A parent with no name is no use to a sentence naming it, so it is
+        // dropped rather than rendered as a bare id.
+        parent: g.parent_game.and_then(|parent| {
+            parent.name.map(|name| IgdbParent {
+                igdb_id: parent.id,
+                name,
+            })
+        }),
+        dlc_ids,
+    }
+}
 
-    // `version_parent = null` drops the "Deluxe Edition"-style duplicates that
-    // otherwise crowd out the game the user is actually looking for.
-    let body = format!(
-        "search \"{term}\"; \
-         fields name,summary,first_release_date,cover.image_id,genres.name,aggregated_rating; \
-         where platforms = ({PC_PLATFORM_ID}) & version_parent = null; \
-         limit 24;"
-    );
-
+/// POST an Apicalypse body and map the result. The error sentences are shared
+/// by both commands: a 429 means the same thing whichever one hit it.
+async fn query_games(
+    creds: &Credentials,
+    token: &str,
+    body: String,
+) -> Result<Vec<IgdbGame>, String> {
     let response = reqwest::Client::new()
         .post(GAMES_URL)
         .header("Client-ID", &creds.client_id)
@@ -371,29 +504,45 @@ pub async fn igdb_search(
         .await
         .map_err(|_| "IGDB returned a response this app did not understand.".to_string())?;
 
-    Ok(raw
-        .into_iter()
-        .map(|g| {
-            let image_id = g.cover.and_then(|c| c.image_id);
-            IgdbGame {
-                igdb_id: g.id,
-                name: g.name,
-                summary: g.summary,
-                release_date: g.first_release_date.map(iso_date_from_unix),
-                critic_rating: critic_score(g.aggregated_rating),
-                genres: g
-                    .genres
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter_map(|genre| genre.name)
-                    .collect(),
-                cover_url: image_id.as_ref().map(|id| {
-                    format!("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{id}.jpg")
-                }),
-                thumb_url: image_id.as_ref().map(|id| {
-                    format!("https://images.igdb.com/igdb/image/upload/t_cover_small/{id}.jpg")
-                }),
-            }
-        })
-        .collect())
+    Ok(raw.into_iter().map(to_game).collect())
+}
+
+/// The DLC of a game the user just added, looked up by the ids its own IGDB
+/// record carried.
+///
+/// Separate from `igdb_search` because it is a different question: the search
+/// asks "what is this title called", this asks "what else came with it". It
+/// runs once, after a save, off the typing path - so it needs no debounce and
+/// no cache.
+#[tauri::command]
+pub async fn igdb_dlc(
+    app: AppHandle,
+    cache: State<'_, TokenCache>,
+    ids: Vec<i64>,
+) -> Result<Vec<IgdbGame>, String> {
+    let Some(body) = by_id_query(&ids) else {
+        return Ok(Vec::new());
+    };
+    let creds = read_credentials(&app)?
+        .ok_or_else(|| "IGDB is not set up yet. Add your credentials in Settings.".to_string())?;
+    let token = token_for(&creds, &cache).await?;
+    query_games(&creds, &token, body).await
+}
+
+#[tauri::command]
+pub async fn igdb_search(
+    app: AppHandle,
+    cache: State<'_, TokenCache>,
+    query: String,
+) -> Result<Vec<IgdbGame>, String> {
+    let term = escape_search_term(query.trim());
+    if term.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let creds = read_credentials(&app)?
+        .ok_or_else(|| "IGDB is not set up yet. Add your credentials in Settings.".to_string())?;
+    let token = token_for(&creds, &cache).await?;
+
+    query_games(&creds, &token, search_query(&term)).await
 }

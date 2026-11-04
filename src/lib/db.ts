@@ -57,8 +57,8 @@ export async function createGame(input: GameInput): Promise<number> {
     `INSERT INTO games (
        title, platform, status, achievement_pct, playtime_minutes, rating,
        critic_rating, genres, cover_file, notes, igdb_id, summary,
-       release_date, is_sample, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,0,$14,$15)`,
+       release_date, parent_id, is_sample, created_at, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,0,$15,$16)`,
     [
       input.title,
       input.platform,
@@ -73,6 +73,7 @@ export async function createGame(input: GameInput): Promise<number> {
       input.igdb_id,
       input.summary,
       input.release_date,
+      input.parent_id,
       timestamp,
       timestamp,
     ],
@@ -87,8 +88,8 @@ export async function updateGame(id: number, input: GameInput): Promise<void> {
        title = $1, platform = $2, status = $3, achievement_pct = $4,
        playtime_minutes = $5, rating = $6, critic_rating = $7, genres = $8,
        cover_file = $9, notes = $10, igdb_id = $11, summary = $12,
-       release_date = $13, updated_at = $14
-     WHERE id = $15`,
+       release_date = $13, parent_id = $14, updated_at = $15
+     WHERE id = $16`,
     [
       input.title,
       input.platform,
@@ -103,15 +104,83 @@ export async function updateGame(id: number, input: GameInput): Promise<void> {
       input.igdb_id,
       input.summary,
       input.release_date,
+      input.parent_id,
       nowIso(),
       id,
     ],
   );
 }
 
-export async function deleteGame(id: number): Promise<void> {
+/**
+ * What deleting a game took with it, so the toast can say so rather than
+ * leaving the user to notice.
+ */
+export interface GameDeletion {
+  /** DLC deleted along with the base game. */
+  dlc: number;
+  /** Wishlist entries that named it and are now parentless, not deleted. */
+  wishlistFreed: number;
+  /** Cover files no longer referenced by any row, for the caller to remove. */
+  covers: string[];
+}
+
+/**
+ * Delete a game, and everything filed under it.
+ *
+ * Its DLC go with it: they are additions to a game that is no longer in the
+ * library, and the confirm dialog says how many before anything happens.
+ * Wishlist entries that named it do not - deleting something you own is not a
+ * statement that you stopped wanting something else, so they lose their parent
+ * and stay on the wishlist as ordinary entries.
+ *
+ * Done here rather than with `ON DELETE CASCADE` for two reasons. The wishlist
+ * half reaches into another table and changes rather than deletes, which no
+ * foreign key on `games` could express. And a declared cascade would only fire
+ * with `PRAGMA foreign_keys` on for the pool, which this app does not set and
+ * should not have to depend on. The `REFERENCES` in migration 7 is
+ * documentation; this function is the behaviour.
+ *
+ * Two statements, and deliberately not wrapped in BEGIN/COMMIT - the same call
+ * this file already makes in `buyWishlistEntry`. `execute` takes a connection
+ * from a pool per call, so a hand-rolled transaction can issue its BEGIN on
+ * one connection and its DELETE on another: the writes autocommit anyway and
+ * the BEGIN is left holding a lock nothing will release. A transaction that is
+ * only a transaction by accident of pool size is worse than none.
+ *
+ * So the order carries the safety instead. The wishlist is freed first, since
+ * a failure after that leaves entries that lost a parent still sitting on the
+ * wishlist, which is visible and fixable by hand. The two deletes are one
+ * statement - `id = ?1 OR parent_id = ?1` - so a base game and its DLC can
+ * never half-go.
+ *
+ * The cover files come back rather than being deleted here, because deleting
+ * files is the Rust side's job - same split as `clearSamples`.
+ */
+export async function deleteGame(id: number): Promise<GameDeletion> {
   const handle = await db();
-  await handle.execute("DELETE FROM games WHERE id = $1", [id]);
+
+  const children = await handle.select<{ id: number; cover_file: string | null }[]>(
+    "SELECT id, cover_file FROM games WHERE parent_id = $1",
+    [id],
+  );
+  const own = await handle.select<{ cover_file: string | null }[]>(
+    "SELECT cover_file FROM games WHERE id = $1",
+    [id],
+  );
+
+  const freed = await handle.execute(
+    "UPDATE wishlist SET parent_id = NULL, updated_at = $1 WHERE parent_id = $2",
+    [nowIso(), id],
+  );
+  await handle.execute("DELETE FROM games WHERE id = $1 OR parent_id = $1", [id]);
+
+  return {
+    dlc: children.length,
+    wishlistFreed: freed.rowsAffected,
+    covers: [...own, ...children]
+      .map((row) => row.cover_file)
+      .filter((file): file is string => !!file),
+  };
 }
 
 /* ---------- Wishlist ------------------------------------------------------
@@ -135,8 +204,8 @@ export async function createWishlistEntry(input: WishlistInput): Promise<number>
   const result = await handle.execute(
     `INSERT INTO wishlist (
        title, priority, critic_rating, genres, cover_file, notes, igdb_id,
-       summary, release_date, is_sample, created_at, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11)`,
+       summary, release_date, parent_id, is_sample, created_at, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,$12)`,
     [
       input.title,
       input.priority,
@@ -147,6 +216,7 @@ export async function createWishlistEntry(input: WishlistInput): Promise<number>
       input.igdb_id,
       input.summary,
       input.release_date,
+      input.parent_id,
       timestamp,
       timestamp,
     ],
@@ -163,8 +233,8 @@ export async function updateWishlistEntry(
     `UPDATE wishlist SET
        title = $1, priority = $2, critic_rating = $3, genres = $4,
        cover_file = $5, notes = $6, igdb_id = $7, summary = $8,
-       release_date = $9, updated_at = $10
-     WHERE id = $11`,
+       release_date = $9, parent_id = $10, updated_at = $11
+     WHERE id = $12`,
     [
       input.title,
       input.priority,
@@ -175,6 +245,7 @@ export async function updateWishlistEntry(
       input.igdb_id,
       input.summary,
       input.release_date,
+      input.parent_id,
       nowIso(),
       id,
     ],
@@ -251,13 +322,18 @@ export async function loadSamples(): Promise<void> {
       ],
     );
   }
+  // Inserted one at a time rather than in a batch so that each row's id is
+  // known before the next is written: a sample DLC names its base game by
+  // title, and the id it needs is the one the insert just returned. Base games
+  // come first in SAMPLE_GAMES for exactly this reason.
+  const idsByTitle = new Map<string, number>();
   for (const game of SAMPLE_GAMES) {
-    await handle.execute(
+    const result = await handle.execute(
       `INSERT INTO games (
          title, platform, status, achievement_pct, playtime_minutes, rating,
-         critic_rating, genres, notes, summary, release_date, is_sample,
-         created_at, updated_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1,$12,$13)`,
+         critic_rating, genres, notes, summary, release_date, parent_id,
+         is_sample, created_at, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,$13,$14)`,
       [
         game.title,
         game.platform,
@@ -270,10 +346,12 @@ export async function loadSamples(): Promise<void> {
         game.notes,
         game.summary,
         game.release_date,
+        game.dlc_for ? (idsByTitle.get(game.dlc_for) ?? null) : null,
         timestamp,
         timestamp,
       ],
     );
+    idsByTitle.set(game.title, Number(result.lastInsertId));
   }
 }
 

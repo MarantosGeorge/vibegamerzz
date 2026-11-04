@@ -60,6 +60,16 @@ export function igdbSearch(query: string): Promise<IgdbGame[]> {
 }
 
 /**
+ * The DLC of a game just added, by the ids its own IGDB record carried.
+ *
+ * Unlike `igdbSearch` this is not on the typing path - it runs once, after a
+ * save - so it has no debounce and no cache behind it.
+ */
+export function igdbDlc(ids: number[]): Promise<IgdbGame[]> {
+  return invoke<IgdbGame[]>("igdb_dlc", { ids });
+}
+
+/**
  * Rust commands reject with a plain string; anything else is a genuine crash.
  * Either way the user gets a sentence rather than an object.
  */

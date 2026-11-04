@@ -82,6 +82,19 @@ export interface Game {
   igdb_id: number | null;
   summary: string | null;
   release_date: string | null;
+  /**
+   * The game this one is DLC for, or null when it is a base game.
+   *
+   * This single field is what "being DLC" means - there is no `is_dlc` flag
+   * beside it. A game with a parent is DLC; a game without one is a base game;
+   * there is no third state and no way to be a DLC that has lost its parent.
+   * See docs/adr/0008.
+   *
+   * Depth is capped at one: a game with a parent is never itself named as a
+   * parent. Nothing in SQLite enforces that - `parentOptions` below is what
+   * keeps it true, by never offering a DLC as somewhere to file something.
+   */
+  parent_id: number | null;
   is_sample: number;
   created_at: string;
   updated_at: string;
@@ -102,6 +115,7 @@ export interface GameInput {
   igdb_id: number | null;
   summary: string | null;
   release_date: string | null;
+  parent_id: number | null;
 }
 
 /**
@@ -155,6 +169,19 @@ export interface WishlistEntry {
   igdb_id: number | null;
   summary: string | null;
   release_date: string | null;
+  /**
+   * The Game in your library this entry is DLC for, or null.
+   *
+   * Always a `games` id and never another wishlist entry: you file DLC under
+   * something you own. Wanting a base game and its DLC at once is expressed by
+   * wishing for the base game - buying it then offers you its DLC.
+   *
+   * Unlike a game's `parent_id`, this never nests anything. The wishlist draws
+   * flat, in its three priority sections, and the parent is a label that says
+   * why you want this. The Library is bounded by what you own, so a wishlist
+   * entry is never drawn inside it. See docs/adr/0005 and docs/adr/0008.
+   */
+  parent_id: number | null;
   is_sample: number;
   created_at: string;
   updated_at: string;
@@ -171,6 +198,7 @@ export interface WishlistInput {
   igdb_id: number | null;
   summary: string | null;
   release_date: string | null;
+  parent_id: number | null;
 }
 
 /**
@@ -364,6 +392,12 @@ export function hasSortValue(game: Game, key: SortKey): boolean {
   return true;
 }
 
+/** What IGDB says a result is DLC for. Advisory only - see docs/adr/0002. */
+export interface IgdbParent {
+  igdb_id: number;
+  name: string;
+}
+
 /** A single search result from IGDB, already normalised by the Rust side. */
 export interface IgdbGame {
   igdb_id: number;
@@ -374,6 +408,15 @@ export interface IgdbGame {
   genres: string[];
   cover_url: string | null;
   thumb_url: string | null;
+  /** The base game IGDB files this under, if it files it under anything. */
+  parent: IgdbParent | null;
+  /**
+   * IGDB's `dlcs` and `expansions` merged. Both, because the split does not
+   * match the word: Alan Wake II and Cyberpunk 2077 carry their DLC entirely
+   * under `expansions` and report `dlcs` empty, so reading `dlcs` alone would
+   * find nothing for either of them.
+   */
+  dlc_ids: number[];
 }
 
 /**
